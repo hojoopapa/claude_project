@@ -5,10 +5,12 @@ export interface AdProvider {
   showRewarded(reason: string): Promise<boolean>;
 }
 
-/** 테스트용 광고. 기본 30초, URL에 ?adsec=3 을 붙이면 길이를 줄일 수 있다. */
+/** 테스트용 광고 길이(초). 기본 30초, 빌드할 때 VITE_AD_SECONDS 로, 실행할 때 주소에 ?adsec=3 으로 바꿀 수 있다. */
 const AD_SECONDS = (() => {
-  const v = Number(new URLSearchParams(location.search).get('adsec'));
-  return Number.isFinite(v) && v >= 0 && new URLSearchParams(location.search).has('adsec') ? v : 30;
+  const params = new URLSearchParams(location.search);
+  const raw = params.has('adsec') ? params.get('adsec') : import.meta.env.VITE_AD_SECONDS;
+  const v = Number(raw);
+  return raw !== null && raw !== undefined && raw !== '' && Number.isFinite(v) && v >= 0 ? v : 30;
 })();
 
 class MockAds implements AdProvider {
