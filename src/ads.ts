@@ -1,16 +1,24 @@
-// 광고 제공자 추상화. 실제 SDK(AdSense for Games, CrazyGames, Poki 등)는 이 인터페이스만 구현해서 교체한다.
+import { t } from './i18n';
+
+// 광고 제공자 추상화. 실제 SDK(CrazyGames, Poki, AdSense for Games 등)는 이 인터페이스만 구현해서 교체한다.
 export interface AdProvider {
   showRewarded(reason: string): Promise<boolean>;
 }
+
+/** 테스트용 광고. 기본 30초, URL에 ?adsec=3 을 붙이면 길이를 줄일 수 있다. */
+const AD_SECONDS = (() => {
+  const v = Number(new URLSearchParams(location.search).get('adsec'));
+  return Number.isFinite(v) && v >= 0 && new URLSearchParams(location.search).has('adsec') ? v : 30;
+})();
 
 class MockAds implements AdProvider {
   showRewarded(reason: string): Promise<boolean> {
     const el = document.getElementById('ad-overlay')!;
     return new Promise((resolve) => {
-      let left = 3;
+      let left = AD_SECONDS;
       const render = () => {
-        el.innerHTML = `<div>[테스트 광고] ${reason}</div><div style="font-size:40px">${left > 0 ? left : '완료'}</div>` +
-          `<button id="ad-close">${left > 0 ? '건너뛰기 (보상 없음)' : '보상 받기'}</button>`;
+        el.innerHTML = `<div>${t('adTest', { reason })}</div><div style="font-size:44px">${left > 0 ? left : t('adDone')}</div>` +
+          `<button id="ad-close">${left > 0 ? t('adSkip') : t('adClaim')}</button>`;
         document.getElementById('ad-close')!.onclick = () => finish(left <= 0);
       };
       const finish = (ok: boolean) => {

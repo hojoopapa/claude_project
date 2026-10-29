@@ -98,6 +98,40 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0x3a7bd5).fillTriangle(29, 4, 29, 14, 42, 9);
       g.fillStyle(0x2a2118).fillRect(22, 46, 12, 20);
     });
+    tex(this, 't_frost', 56, 72, (g) => {
+      g.fillStyle(0x9fb4c8).fillRect(15, 36, 26, 30);
+      g.lineStyle(2, 0x1b1b1b).strokeRect(15, 36, 26, 30);
+      g.fillStyle(0xcfeeff).fillTriangle(28, 2, 18, 38, 38, 38);
+      g.fillStyle(0x8fd8ff).fillTriangle(16, 14, 8, 38, 24, 38).fillTriangle(40, 14, 32, 38, 48, 38);
+      g.lineStyle(2, 0x1b1b1b).strokeTriangle(28, 2, 18, 38, 38, 38);
+      g.fillStyle(0x2a2118).fillRect(24, 52, 8, 14);
+    });
+    tex(this, 't_thunder', 56, 72, (g) => {
+      g.fillStyle(0x4a4a5c).fillRect(16, 34, 24, 32);
+      g.lineStyle(2, 0x1b1b1b).strokeRect(16, 34, 24, 32);
+      g.fillStyle(0x30303c).fillRect(12, 28, 32, 8);
+      g.fillStyle(0xffe14a).fillCircle(28, 18, 11);
+      g.lineStyle(2, 0x1b1b1b).strokeCircle(28, 18, 11);
+      g.fillStyle(0x30303c).fillTriangle(30, 8, 22, 20, 28, 20).fillTriangle(26, 28, 34, 16, 28, 16);
+      g.fillStyle(0x2a2118).fillRect(24, 52, 8, 14);
+    });
+    tex(this, 'h_knight', 34, 40, (g) => {
+      g.fillStyle(0xc0392b).fillTriangle(17, 12, 3, 38, 31, 38);
+      circ(g, 17, 24, 11, 0xe0b84a);
+      g.fillStyle(0xb8c2cc).fillRect(8, 6, 18, 12);
+      g.lineStyle(2, 0x1b1b1b).strokeRect(8, 6, 18, 12);
+      g.fillStyle(0x1b1b1b).fillRect(10, 11, 14, 3);
+      g.fillStyle(0xc0392b).fillTriangle(17, 0, 13, 8, 21, 8);
+    });
+    tex(this, 'h_sorc', 34, 42, (g) => {
+      g.fillStyle(0x6a3fa8).fillTriangle(17, 14, 4, 40, 30, 40);
+      g.lineStyle(2, 0x1b1b1b).strokeTriangle(17, 14, 4, 40, 30, 40);
+      circ(g, 17, 18, 7, 0xffd9a8);
+      g.fillStyle(0x4a2a80).fillTriangle(17, 0, 7, 14, 27, 14);
+      g.lineStyle(2, 0x1b1b1b).strokeTriangle(17, 0, 7, 14, 27, 14);
+      g.fillStyle(0x66e0ff).fillCircle(30, 12, 3);
+      g.fillStyle(0x8a5a2b).fillRect(29, 14, 2, 24);
+    });
     tex(this, 'spot', 50, 30, (g) => {
       g.fillStyle(0x000000, 0.25).fillEllipse(25, 17, 46, 22);
       g.fillStyle(0xb8ab94).fillEllipse(25, 15, 44, 22);

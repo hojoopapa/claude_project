@@ -3,7 +3,9 @@ import { GAME_W, GAME_H } from '../config';
 import { LEVELS, LevelDef, Theme } from '../data/levels';
 import { EnemyKind } from '../data/enemies';
 import { TOWERS, TowerKind } from '../data/towers';
-import { Enemy, Projectile, Soldier, Tower, World } from '../game/entities';
+import { HEROES, HeroKind } from '../data/heroes';
+import { Enemy, Hero, Projectile, Soldier, Tower, World } from '../game/entities';
+import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { ads } from '../ads';
 import { saveStars } from '../save';
@@ -45,6 +47,15 @@ export class GameScene extends Phaser.Scene implements World {
   private adBusy = false;
   private adGoldReady = 0;
 
+  private unlocked = new Set<string>();
+  private heroes: Record<HeroKind, { hero: Hero | null; respawn: number; cd: number }> = {
+    knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 },
+  };
+  private selHero: HeroKind | null = null;
+  private heroBtns!: Record<HeroKind, { pick: Btn; skill: Btn }>;
+  private tip: Phaser.GameObjects.Text | null = null;
+  private dialog: Phaser.GameObjects.GameObject[] = [];
+
   private spell: Spell | null = null;
   private spellCd: Record<Spell, number> = { fire: 0, reinf: 0 };
   private strikes: { t: number; x: number; y: number }[] = [];
@@ -66,6 +77,9 @@ export class GameScene extends Phaser.Scene implements World {
     this.waveIdx = -1; this.clock = 0; this.speed = 1; this.paused = false; this.over = false;
     this.revived = false; this.adBusy = false; this.adGoldReady = 0; this.spell = null;
     this.spellCd = { fire: 0, reinf: 0 };
+    this.unlocked = new Set();
+    this.heroes = { knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 } };
+    this.selHero = null; this.tip = null; this.dialog = [];
   }
 
   create() {
@@ -81,7 +95,7 @@ export class GameScene extends Phaser.Scene implements World {
     for (const pos of this.level.spots) {
       const img = this.add.image(pos.x, pos.y + 4, 'spot').setDepth(1).setInteractive({ useHandCursor: true });
       const spot: Spot = { pos, img, tower: null };
-      img.on('pointerdown', () => { if (!this.spell && !this.over) this.openBuildMenu(spot); });
+      img.on('pointerdown', () => { if (!this.spell && !this.selHero && !this.over) this.openBuildMenu(spot); });
       this.spots.push(spot);
     }
 
@@ -91,11 +105,12 @@ export class GameScene extends Phaser.Scene implements World {
       if (this.over) return;
       if (over.some((o) => o.getData('ui'))) return;
       if (this.spell) { this.castSpell(this.spell, p.x, p.y); return; }
+      if (this.selHero) { this.moveHero(this.selHero, p.x, p.y); return; }
       if (over.length === 0) this.closeMenu();
     });
     this.input.keyboard?.on('keydown-SPACE', () => this.togglePause());
 
-    this.showBanner(`${this.level.id}. ${this.level.name}`, '타워를 지을 자리를 눌러 시작하세요');
+    this.showBanner(`${this.level.id}. ${t('level.' + this.level.id)}`, t('startHint'));
     this.nextWaveAt = this.clock + 12; // 첫 웨이브 전 준비 시간
   }
 
@@ -179,36 +194,57 @@ export class GameScene extends Phaser.Scene implements World {
       hint: text(this, GAME_W / 2, 70, '', 22, '#ffffff').setDepth(901).setVisible(false),
     };
     const d = (b: Btn) => { b.bg.setDepth(901); b.label.setDepth(902); return b; };
+    const y = GAME_H - 40;
     this.buttons = {
       pause: d(button(this, GAME_W - 28, 18, 44, 28, 'II', () => this.togglePause(), 0x555566, 16)),
       speed: d(button(this, GAME_W - 82, 18, 54, 28, 'x1', () => this.toggleSpeed(), 0x555566, 16)),
-      fire: d(button(this, 52, GAME_H - 40, 84, 56, '화염비', () => this.pickSpell('fire'), 0xc0541f, 16)),
-      reinf: d(button(this, 148, GAME_H - 40, 84, 56, '지원군', () => this.pickSpell('reinf'), 0x2f7bd0, 16)),
-      ad: d(button(this, 270, GAME_H - 40, 130, 56, `광고 보고\n+${AD_GOLD}골드`, () => this.watchAdGold(), 0x8a5bd0, 15)),
-      next: d(button(this, GAME_W - 90, GAME_H - 40, 150, 56, '다음 웨이브 ▶', () => this.callNextWave(), 0x3b8f4a, 17)),
+      fire: d(button(this, 48, y, 80, 56, t('fire'), () => this.pickSpell('fire'), 0xc0541f, 15)),
+      reinf: d(button(this, 134, y, 80, 56, t('reinf'), () => this.pickSpell('reinf'), 0x2f7bd0, 15)),
+      ad: d(button(this, 490, y, 140, 56, '', () => this.watchAdGold(), 0x8a5bd0, 14)),
+      next: d(button(this, GAME_W - 90, y, 150, 56, '', () => this.callNextWave(), 0x3b8f4a, 16)),
     };
+    const mkHero = (k: HeroKind, x: number) => ({
+      pick: d(button(this, x, y, 96, 56, '', () => this.pickHero(k), 0x8a5a2b, 14)),
+      skill: d(button(this, x, y - 44, 96, 26, t('skill.' + k), () => this.useAbility(k), 0x2f8f8f, 14)),
+    });
+    this.heroBtns = { knight: mkHero('knight', 240), sorc: mkHero('sorc', 344) };
+    (['knight', 'sorc'] as HeroKind[]).forEach((k) => {
+      this.add.image(this.heroBtns[k].pick.bg.x - 30, y, HEROES[k].tex).setScale(0.8).setDepth(903);
+    });
   }
 
   private updateHud() {
     const b = this.buttons!;
-    this.hud.lives.setText(`생명 ${this.lives}`);
-    this.hud.gold.setText(`골드 ${Math.floor(this.gold)}`);
+    this.hud.lives.setText(t('lives', { n: this.lives }));
+    this.hud.gold.setText(t('gold', { n: Math.floor(this.gold) }));
     const total = this.level.waves.length;
-    this.hud.wave.setText(`웨이브 ${Math.max(0, this.waveIdx + 1)} / ${total}`);
+    this.hud.wave.setText(t('wave', { n: Math.max(0, this.waveIdx + 1), m: total }));
     for (const k of ['fire', 'reinf'] as Spell[]) {
       const cd = this.spellCd[k];
-      const name = k === 'fire' ? '화염비' : '지원군';
-      b[k].setLabel(cd > 0 ? `${name}\n${Math.ceil(cd)}s` : this.spell === k ? `${name}\n(선택됨)` : name);
+      const name = t(k);
+      b[k].setLabel(cd > 0 ? `${name}\n${Math.ceil(cd)}s` : this.spell === k ? `${name}\n${t('selected')}` : name);
       b[k].setEnabled(cd <= 0);
     }
     const adWait = Math.ceil((this.adGoldReady - performance.now()) / 1000);
-    b.ad.setLabel(adWait > 0 ? `광고 보너스\n${adWait}s` : `광고 보고\n+${AD_GOLD}골드`);
+    b.ad.setLabel(adWait > 0 ? t('adWait', { s: adWait }) : t('adGold', { n: AD_GOLD }));
     b.ad.setEnabled(adWait <= 0 && !this.adBusy);
+    for (const k of ['knight', 'sorc'] as HeroKind[]) {
+      const st = this.heroes[k], ui = this.heroBtns[k], name = t('hero.' + k);
+      const on = this.unlocked.has(k);
+      if (!on) ui.pick.setLabel(`${name}\n[${t('adTag')}]`);
+      else if (!st.hero || st.hero.dead) ui.pick.setLabel(`${name}\n${Math.ceil(Math.max(0, st.respawn))}s`);
+      else ui.pick.setLabel(this.selHero === k ? `${name}\n${t('selected')}` : name);
+      ui.pick.label.setX(ui.pick.bg.x + 14).setWordWrapWidth(66).setAlign('center');
+      ui.skill.setVisible(on);
+      const alive = !!st.hero && !st.hero.dead;
+      ui.skill.setLabel(st.cd > 0 ? `${t('skill.' + k)} ${Math.ceil(st.cd)}s` : t('skill.' + k));
+      ui.skill.setEnabled(alive && st.cd <= 0);
+    }
     const canCall = this.waveIdx + 1 < total && !this.over;
     b.next.setVisible(canCall);
     if (canCall) {
       const left = Math.max(0, Math.ceil(this.nextWaveAt - this.clock));
-      b.next.setLabel(Number.isFinite(left) ? `다음 웨이브 ▶\n${left}s (+${this.earlyBonus()})` : '다음 웨이브 ▶');
+      b.next.setLabel(Number.isFinite(left) ? `${t('nextWave')}\n${left}s (+${this.earlyBonus()})` : t('nextWave'));
     }
   }
 
@@ -221,7 +257,7 @@ export class GameScene extends Phaser.Scene implements World {
     if (this.over) return;
     this.paused = !this.paused;
     this.buttons!.pause.setLabel(this.paused ? '▶' : 'II');
-    if (this.paused) this.showBanner('일시정지', '스페이스바 또는 ▶ 버튼으로 계속', true);
+    if (this.paused) this.showBanner(t('paused'), t('pausedSub'), true);
     else this.hud.hint.setVisible(false);
   }
 
@@ -245,53 +281,66 @@ export class GameScene extends Phaser.Scene implements World {
   private closeMenu() {
     this.menu.forEach((o) => o.destroy());
     this.menu = [];
+    this.tip = null;
   }
 
-  private menuButton(x: number, y: number, tex: string | null, label: string, sub: string, enabled: boolean, cb: () => void) {
-    const cx = Phaser.Math.Clamp(x, 34, GAME_W - 34), cy = Phaser.Math.Clamp(y, 60, GAME_H - 50);
-    const bg = this.add.rectangle(cx, cy, 58, 58, enabled ? 0x2a3550 : 0x40363a, 0.95).setStrokeStyle(3, enabled ? 0xffe9a0 : 0x77666a)
+  private clampCenter(x: number, y: number): Vec {
+    return { x: Phaser.Math.Clamp(x, 80, GAME_W - 80), y: Phaser.Math.Clamp(y, 100, GAME_H - 95) };
+  }
+
+  private menuButton(x: number, y: number, tex: string | null, label: string, sub: string, enabled: boolean, cb: () => void,
+    opts: { tip?: string; subColor?: string } = {}) {
+    const bg = this.add.rectangle(x, y, 56, 56, enabled ? 0x2a3550 : 0x40363a, 0.95).setStrokeStyle(3, enabled ? 0xffe9a0 : 0x77666a)
       .setDepth(1000).setInteractive({ useHandCursor: true });
     bg.setData('ui', true);
-    bg.on('pointerdown', () => { if (enabled) cb(); });
+    bg.on('pointerdown', () => cb());
+    if (opts.tip !== undefined) {
+      bg.on('pointerover', () => this.tip?.setText(opts.tip!));
+      bg.on('pointerout', () => this.tip?.setText(''));
+    }
     this.menu.push(bg);
-    if (tex) this.menu.push(this.add.image(cx, cy - 4, tex).setScale(0.5).setDepth(1001));
-    else this.menu.push(text(this, cx, cy - 6, label, 16).setDepth(1001));
-    this.menu.push(text(this, cx, cy + 22, sub, 13, enabled ? '#ffd34d' : '#aa8888').setDepth(1002));
+    if (tex) this.menu.push(this.add.image(x, y - 5, tex).setScale(0.48).setDepth(1001));
+    else this.menu.push(text(this, x, y - 6, label, 16).setDepth(1001));
+    this.menu.push(text(this, x, y + 21, sub, 13, opts.subColor ?? (enabled ? '#ffd34d' : '#aa8888')).setDepth(1002));
   }
 
   private openBuildMenu(spot: Spot) {
     this.closeMenu();
-    const { x, y } = spot.pos;
-    const ring = this.add.circle(x, y, 74, 0x000000, 0.25).setStrokeStyle(2, 0xffffff, 0.4).setDepth(999);
-    this.menu.push(ring);
-    const kinds: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon'];
-    const offs = [[0, -62], [-62, 0], [62, 0], [0, 62]];
+    const c = this.clampCenter(spot.pos.x, spot.pos.y);
+    this.menu.push(this.add.circle(c.x, c.y, 100, 0x000000, 0.25).setStrokeStyle(2, 0xffffff, 0.4).setDepth(999));
+    this.tip = text(this, c.x, c.y, '', 12, '#ffffff').setDepth(1003).setWordWrapWidth(84).setAlign('center');
+    this.menu.push(this.tip);
+    const kinds: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon', 'frost', 'thunder'];
+    const offs = [[0, -70], [61, -35], [61, 35], [0, 70], [-61, 35], [-61, -35]];
     kinds.forEach((k, i) => {
       const def = TOWERS[k], cost = def.levels[0].cost;
-      this.menuButton(x + offs[i][0], y + offs[i][1], def.tex, def.name, `${cost}`, this.gold >= cost, () => this.buildTower(spot, k));
+      const locked = !!def.adLock && !this.unlocked.has(k);
+      const tip = `${t('tower.' + k)}\n${t('desc.' + k)}`;
+      this.menuButton(c.x + offs[i][0], c.y + offs[i][1], def.tex, '', locked ? `[${t('adTag')}]` : `${cost}`,
+        locked || this.gold >= cost, () => {
+          if (locked) void this.unlockWithAd(k, t('tower.' + k)).then((ok) => { if (ok && !this.over) this.buildTower(spot, k); });
+          else if (this.gold >= cost) this.buildTower(spot, k);
+        }, { tip, subColor: locked ? '#d9a8ff' : undefined });
     });
-    // 선택한 타워 설명은 정보창으로
-    this.menu.push(this.add.graphics().setDepth(999));
   }
 
   private openTowerMenu(spot: Spot) {
     this.closeMenu();
-    const t = spot.tower!;
-    const { x, y } = spot.pos;
-    const range = this.add.circle(x, y, t.lv.range, 0xffffff, 0.12).setStrokeStyle(2, 0xffffff, 0.5).setDepth(998);
-    this.menu.push(range);
-    const info = text(this, x, y - 100, `${TOWERS[t.kind].name} Lv.${t.level + 1}`, 16).setDepth(1002);
-    this.menu.push(info);
-    if (!t.maxed) {
-      this.menuButton(x, y - 62, null, '▲', `${t.upgradeCost}`, this.gold >= t.upgradeCost, () => {
-        this.gold -= t.upgradeCost; t.upgrade(); this.floatText(x, y - 50, '레벨 업!', '#9fe870'); this.closeMenu();
+    const tw = spot.tower!;
+    const c = this.clampCenter(spot.pos.x, spot.pos.y);
+    this.menu.push(this.add.circle(spot.pos.x, spot.pos.y, tw.lv.range, 0xffffff, 0.12).setStrokeStyle(2, 0xffffff, 0.5).setDepth(998));
+    this.menu.push(text(this, c.x, c.y - 100, `${t('tower.' + tw.kind)} Lv.${tw.level + 1}`, 16).setDepth(1002));
+    if (!tw.maxed) {
+      this.menuButton(c.x, c.y - 62, null, '▲', `${tw.upgradeCost}`, this.gold >= tw.upgradeCost, () => {
+        if (this.gold < tw.upgradeCost) return;
+        this.gold -= tw.upgradeCost; tw.upgrade(); this.floatText(spot.pos.x, spot.pos.y - 50, t('levelUp'), '#9fe870'); this.closeMenu();
       });
     } else {
-      this.menuButton(x, y - 62, null, 'MAX', '', false, () => {});
+      this.menuButton(c.x, c.y - 62, null, 'MAX', '', false, () => {});
     }
-    this.menuButton(x, y + 62, null, '$', `+${t.sellValue}`, true, () => {
-      this.gold += t.sellValue; t.destroy();
-      this.towers.splice(this.towers.indexOf(t), 1);
+    this.menuButton(c.x, c.y + 62, null, '$', `+${tw.sellValue}`, true, () => {
+      this.gold += tw.sellValue; tw.destroy();
+      this.towers.splice(this.towers.indexOf(tw), 1);
       spot.tower = null; spot.img.setVisible(true).setInteractive();
       this.closeMenu();
     });
@@ -301,14 +350,73 @@ export class GameScene extends Phaser.Scene implements World {
     const cost = TOWERS[kind].levels[0].cost;
     if (this.gold < cost || spot.tower) return;
     this.gold -= cost;
-    const t = new Tower(this, kind, spot.pos, this.paths.filter((p) => !p.air));
-    spot.tower = t;
-    this.towers.push(t);
+    const tw = new Tower(this, kind, spot.pos, this.paths.filter((p) => !p.air));
+    spot.tower = tw;
+    this.towers.push(tw);
     spot.img.setVisible(false);
-    // 타워 이미지 클릭 → 업그레이드 메뉴
-    t.img.setInteractive({ useHandCursor: true });
-    t.img.on('pointerdown', () => { if (!this.spell && !this.over) this.openTowerMenu(spot); });
+    tw.img.setInteractive({ useHandCursor: true });
+    tw.img.on('pointerdown', () => { if (!this.spell && !this.selHero && !this.over) this.openTowerMenu(spot); });
     this.closeMenu();
+  }
+
+  // ---------- 영웅 ----------
+  private heroSpawnPoint(): Vec {
+    const p = this.paths.find((q) => !q.air) ?? this.paths[0];
+    return p.at(p.total * 0.35);
+  }
+
+  private spawnHero(k: HeroKind) {
+    const st = this.heroes[k];
+    const h = new Hero(this, k, this.heroSpawnPoint());
+    st.hero = h;
+    this.soldiers.push(h);
+    this.splashFx(h.x, h.y, 30, 0xffe9a0);
+  }
+
+  private async pickHero(k: HeroKind) {
+    if (this.over || this.adBusy) return;
+    this.closeMenu();
+    if (!this.unlocked.has(k)) {
+      const ok = await this.unlockWithAd(k, t('hero.' + k));
+      if (ok && !this.over) this.spawnHero(k);
+      return;
+    }
+    const h = this.heroes[k].hero;
+    if (!h || h.dead) return;
+    this.spell = null;
+    this.selHero = this.selHero === k ? null : k;
+    if (this.selHero) this.showBanner(t('heroMove', { name: t('hero.' + k) }), '', true);
+    else this.hud.hint.setVisible(false);
+  }
+
+  private moveHero(k: HeroKind, x: number, y: number) {
+    const h = this.heroes[k].hero;
+    this.selHero = null;
+    this.hud.hint.setVisible(false);
+    if (!h || h.dead || y < 44) return;
+    h.home = { x, y };
+    this.splashFx(x, y, 14, 0x9fe870);
+  }
+
+  private useAbility(k: HeroKind) {
+    const st = this.heroes[k], h = st.hero;
+    if (this.over || !h || h.dead || st.cd > 0) return;
+    st.cd = HEROES[k].abilityCd;
+    if (k === 'knight') {
+      this.splashFx(h.x, h.y, 85, 0xffd34d);
+      for (const e of this.enemies) {
+        if (e.dead || e.def.flying || Math.hypot(e.x - h.x, e.y - h.y) > 85) continue;
+        e.hurt(70, false);
+        e.stun(2);
+      }
+    } else {
+      this.splashFx(h.x, h.y, 140, 0x66ccff);
+      for (const e of this.enemies) {
+        if (e.dead || Math.hypot(e.x - h.x, e.y - h.y) > 140) continue;
+        e.hurt(40, true);
+        e.slow(0.4, 4);
+      }
+    }
   }
 
   // ---------- 웨이브 ----------
@@ -322,13 +430,13 @@ export class GameScene extends Phaser.Scene implements World {
     }
     this.nextWaveAt = wave.time > 0 ? this.clock + wave.time : Infinity;
     const last = this.waveIdx === this.level.waves.length - 1;
-    this.showBanner(last ? '마지막 웨이브!' : `웨이브 ${this.waveIdx + 1}`, '');
+    this.showBanner(last ? t('lastWave') : t('waveBanner', { n: this.waveIdx + 1 }), '');
   }
 
   private callNextWave() {
     if (this.over || this.waveIdx + 1 >= this.level.waves.length) return;
     const bonus = this.earlyBonus();
-    if (bonus > 0 && this.waveIdx >= 0) { this.gold += bonus; this.floatText(GAME_W - 90, GAME_H - 80, `+${bonus} 조기 호출`, '#9fe870'); }
+    if (bonus > 0 && this.waveIdx >= 0) { this.gold += bonus; this.floatText(GAME_W - 90, GAME_H - 80, t('early', { n: bonus }), '#9fe870'); }
     this.startNextWave();
   }
 
@@ -337,7 +445,7 @@ export class GameScene extends Phaser.Scene implements World {
     if (this.spellCd[s] > 0 || this.over) return;
     this.closeMenu();
     this.spell = this.spell === s ? null : s;
-    if (this.spell) this.showBanner(s === 'fire' ? '화염비' : '지원군', '전장을 눌러 발동', true);
+    if (this.spell) this.showBanner(t(s), t('castHint'), true);
     else this.hud.hint.setVisible(false);
   }
 
@@ -366,17 +474,50 @@ export class GameScene extends Phaser.Scene implements World {
   }
 
   // ---------- 광고 ----------
+  private confirmAd(title: string, sub: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const ui = this.dialog;
+      const close = (v: boolean) => { ui.forEach((o) => o.destroy()); ui.length = 0; resolve(v); };
+      const shade = this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.6).setDepth(3000).setInteractive();
+      shade.setData('ui', true);
+      ui.push(shade,
+        this.add.rectangle(GAME_W / 2, GAME_H / 2, 440, 210, 0x20263a).setStrokeStyle(4, 0xd9a8ff).setDepth(3001),
+        text(this, GAME_W / 2, GAME_H / 2 - 55, title, 22).setDepth(3002).setWordWrapWidth(400).setAlign('center'),
+        text(this, GAME_W / 2, GAME_H / 2 - 5, sub, 16, '#cfd6e6').setDepth(3002).setWordWrapWidth(400).setAlign('center'));
+      const mk = (x: number, label: string, color: number, v: boolean) => {
+        const b = button(this, x, GAME_H / 2 + 60, 180, 48, label, () => close(v), color, 18);
+        b.bg.setDepth(3002); b.label.setDepth(3003);
+        ui.push(b.bg, b.label);
+      };
+      mk(GAME_W / 2 - 100, t('watch'), 0x8a5bd0, true);
+      mk(GAME_W / 2 + 100, t('cancel'), 0x555566, false);
+    });
+  }
+
+  /** 확인 → 보상형 광고 시청 → 이번 스테이지 동안 잠금 해제 */
+  private async unlockWithAd(key: string, name: string): Promise<boolean> {
+    if (this.adBusy || this.over) return false;
+    this.adBusy = true;
+    let ok = false;
+    try {
+      if (await this.confirmAd(t('adUnlockTitle', { name }), t('adUnlockSub'))) {
+        ok = await ads.showRewarded(t('reasonUnlock', { name }));
+      }
+    } finally {
+      this.adBusy = false;
+    }
+    if (ok) this.unlocked.add(key);
+    return ok;
+  }
+
   private async watchAdGold() {
     if (this.adBusy || this.over) return;
     this.adBusy = true;
-    const was = this.paused;
-    this.paused = true;
-    const ok = await ads.showRewarded(`+${AD_GOLD} 골드`);
-    this.paused = was;
-    this.adBusy = false;
+    let ok = false;
+    try { ok = await ads.showRewarded(t('reasonGold', { n: AD_GOLD })); } finally { this.adBusy = false; }
     if (ok) {
       this.gold += AD_GOLD;
-      this.floatText(270, GAME_H - 90, `+${AD_GOLD}`, '#ffd34d');
+      this.floatText(490, GAME_H - 90, `+${AD_GOLD}`, '#ffd34d');
       this.adGoldReady = performance.now() + AD_GOLD_CD * 1000;
     }
   }
@@ -384,8 +525,8 @@ export class GameScene extends Phaser.Scene implements World {
   private async reviveWithAd() {
     if (this.adBusy) return;
     this.adBusy = true;
-    const ok = await ads.showRewarded('이어서 하기 (생명 +10)');
-    this.adBusy = false;
+    let ok = false;
+    try { ok = await ads.showRewarded(t('reasonRevive')); } finally { this.adBusy = false; }
     if (!ok) return;
     this.revived = true;
     this.lives = 10;
@@ -410,7 +551,7 @@ export class GameScene extends Phaser.Scene implements World {
     const shade = add(this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.6).setDepth(2000).setInteractive());
     shade.setData('ui', true);
     add(this.add.rectangle(GAME_W / 2, GAME_H / 2, 420, 300, 0x20263a).setStrokeStyle(4, 0xffe9a0).setDepth(2001));
-    add(text(this, GAME_W / 2, GAME_H / 2 - 100, win ? '승리!' : '패배...', 44, win ? '#ffe9a0' : '#ff8a8a').setDepth(2002));
+    add(text(this, GAME_W / 2, GAME_H / 2 - 100, win ? t('victory') : t('defeat'), 44, win ? '#ffe9a0' : '#ff8a8a').setDepth(2002));
     if (win) add(text(this, GAME_W / 2, GAME_H / 2 - 45, '★'.repeat(stars) + '☆'.repeat(3 - stars), 40, '#ffd34d').setDepth(2002));
     const mk = (y: number, label: string, cb: () => void, color: number) => {
       const b = button(this, GAME_W / 2, y, 280, 48, label, cb, color, 20);
@@ -419,19 +560,19 @@ export class GameScene extends Phaser.Scene implements World {
     };
     let y = GAME_H / 2 + 10;
     if (win) {
-      if (this.index + 1 < LEVELS.length) mk(y, '다음 스테이지', () => this.scene.restart({ index: this.index + 1 }), 0x3b8f4a), y += 56;
+      if (this.index + 1 < LEVELS.length) mk(y, t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), 0x3b8f4a), y += 56;
     } else if (!this.revived) {
-      mk(y, '광고 보고 이어하기 (생명 +10)', () => this.reviveWithAd(), 0x8a5bd0), y += 56;
+      mk(y, t('revive'), () => this.reviveWithAd(), 0x8a5bd0), y += 56;
     }
-    mk(y, '다시 하기', () => this.scene.restart({ index: this.index }), 0x3b6fb6); y += 56;
-    mk(y, '스테이지 선택', () => this.scene.start('LevelSelect'), 0x555566);
+    mk(y, t('retry'), () => this.scene.restart({ index: this.index }), 0x3b6fb6); y += 56;
+    mk(y, t('stageSelect'), () => this.scene.start('LevelSelect'), 0x555566);
   }
 
   // ---------- 메인 루프 ----------
   update(_time: number, delta: number) {
     this.updateHud();
     this.drawBars();
-    if (this.paused || this.over) return;
+    if (this.paused || this.over || this.adBusy) return;
     const dt = Math.min(delta, 50) / 1000 * this.speed;
     this.clock += dt;
 
@@ -443,6 +584,13 @@ export class GameScene extends Phaser.Scene implements World {
         this.enemies.push(new Enemy(this, s.kind, this.paths[s.path] ?? this.paths[0]));
         this.pending.splice(i, 1);
       }
+    }
+    for (const k of ['knight', 'sorc'] as HeroKind[]) {
+      const st = this.heroes[k];
+      st.cd = Math.max(0, st.cd - dt);
+      if (!this.unlocked.has(k)) continue;
+      if (st.hero?.dead) { st.hero = null; st.respawn = HEROES[k].respawn; if (this.selHero === k) this.selHero = null; }
+      else if (!st.hero && (st.respawn -= dt) <= 0) this.spawnHero(k);
     }
     this.spellCd.fire = Math.max(0, this.spellCd.fire - dt);
     this.spellCd.reinf = Math.max(0, this.spellCd.reinf - dt);
@@ -476,6 +624,10 @@ export class GameScene extends Phaser.Scene implements World {
     };
     for (const e of this.enemies) {
       if (e.hp < e.maxHp) bar(e.x, e.y - (e.def.flying ? 44 : 26) - (e.def.tex === 'e_ogre' ? 16 : 0), e.def.tex === 'e_ogre' ? 44 : 26, e.hp / e.maxHp, 0xe74c3c);
+    }
+    if (this.selHero) {
+      const h = this.heroes[this.selHero].hero;
+      if (h && !h.dead) g.lineStyle(2, 0x9fe870, 1).strokeEllipse(h.x, h.y + 12, 34, 16);
     }
     for (const s of this.soldiers) if (s.hp < s.maxHp) bar(s.x, s.y - 18, 20, s.hp / s.maxHp, 0x4aa3ff);
     for (const t of this.towers) {
