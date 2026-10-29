@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Realm Guard</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #14121f; overflow: hidden; touch-action: none; }
+      body { display: flex; flex-direction: column; }
+      #game { flex: 1; min-height: 0; }
+      #ad-banner {
+        height: 90px; display: flex; align-items: center; justify-content: center;
+        color: #6b6785; font: 12px sans-serif; background: #0e0c17; border-top: 1px solid #2a2640;
+      }
+      @media (max-width: 760px), (max-height: 600px) { #ad-banner { height: 50px; } }
+      #ad-overlay {
+        position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column;
+        background: rgba(0,0,0,.88); color: #fff; font: 16px sans-serif; z-index: 10; gap: 16px; text-align: center;
+      }
+      #ad-overlay button { font: 16px sans-serif; padding: 10px 24px; border-radius: 8px; border: 0; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="ad-banner">AD BANNER (728x90 / 320x50)</div>
+    <div id="ad-overlay"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
