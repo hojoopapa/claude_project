@@ -48,6 +48,9 @@ node scripts/balance-sim.cjs . 1,5,20   # 봇 시뮬레이션 (dev 서버 --port
 - 기본 브랜치는 `main`. 새 작업은 별도 브랜치에서 하고 PR로 병합한다 (지금까지는 squash 병합). 푸시하지 않은 변경은 다른 PC에서 보이지 않는다.
 - 플레이용 미리보기는 `npm run build:single`로 만든 `dist/single.html`을 claude.ai 아티팩트로 올려서 확인했다 (본인만 열리는 비공개 링크).
 
+## 배포
+- `main`에 푸시되면 `.github/workflows/deploy.yml`이 GitHub Pages에 자동 배포한다 (공개 주소: https://hojoopapa.github.io/claude_project/). 저장소 Settings → Pages → Source가 "GitHub Actions"여야 한다. 공개 빌드는 테스트 광고를 5초(`VITE_AD_SECONDS`)로 줄이고 검색엔진 색인을 막는다(`noindex`). 실제 광고 SDK를 붙일 때 이 설정도 정리한다.
+
 ## 다음 작업 (2026-10-29 기준, 사용자 결정 순서)
 1. **그래픽 개선을 먼저 한다.** 사용자가 ChatGPT로 이미지를 만들어 `assets-inbox/`에 올리는 방식으로 정했다. 프롬프트는 `docs/art/prompts.md`, 에셋 목록은 `docs/art/manifest.json`, 순서는 `docs/art/README.md`. 이미지가 올라오면 `python3 scripts/process-assets.py`로 변환(마젠타 배경 제거·크기 맞춤)하고, `BootScene`이 `public/assets/index.json`의 이미지를 불러오도록 바꾼다 (이미지가 없는 키는 기존 도형 텍스처를 폴백으로 유지, 이미지는 표시 크기의 2배라 0.5배로 표시, 타워는 레벨별 이미지 교체, 맵은 `g_*`/`r_*` 타일과 `d_*` 소품 사용). 적·영웅은 오른쪽을 보는 이미지다.
 2. 광고는 그다음에 넣는다 (CrazyGames SDK 연동: `ads.ts` 교체, 일시정지/음소거 규격).
