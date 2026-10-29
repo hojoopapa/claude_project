@@ -18,7 +18,9 @@ type Spell = 'fire' | 'reinf';
 const THEMES: Record<Theme, { ground: number; patch: number; road: number; edge: number; deco: number }> = {
   meadow: { ground: 0x4c8a3a, patch: 0x569a42, road: 0xc9b07a, edge: 0x8a7248, deco: 0x2f6b2a },
   desert: { ground: 0xd8b878, patch: 0xcfae6a, road: 0xa8845a, edge: 0x7a5c38, deco: 0x6a8f3a },
+  swamp: { ground: 0x56653f, patch: 0x4a5a38, road: 0x8a7a55, edge: 0x4e4128, deco: 0x2c4a2e },
   snow: { ground: 0xdfe9f2, patch: 0xcfdcea, road: 0x9aa8b8, edge: 0x6b7888, deco: 0x2e5a45 },
+  volcano: { ground: 0x4a3434, patch: 0x3d2a2a, road: 0x8a7468, edge: 0x2e2220, deco: 0x7a2a1a },
 };
 
 const FIRE_CD = 40, REINF_CD = 22, AD_GOLD = 150, AD_GOLD_CD = 90;
@@ -174,12 +176,19 @@ export class GameScene extends Phaser.Scene implements World {
       g.fillStyle(0xffffff, 0.12).fillCircle(v.x - 4 * s, v.y - 10 * s, 7 * s);
       placed++;
     }
-    // 입구/출구 표시
-    const first = this.paths.filter((p) => !p.air);
-    for (const p of first) {
-      const s = p.pts[0], e = p.pts[p.pts.length - 1];
-      g.fillStyle(0xc0392b, 0.9).fillTriangle(Math.max(14, s.x + 24), s.y - 14, Math.max(14, s.x + 24), s.y + 14, Math.max(14, s.x + 48), s.y);
-      g.fillStyle(0x2ecc71, 0.9).fillTriangle(Math.min(GAME_W - 14, e.x - 60), e.y - 14, Math.min(GAME_W - 14, e.x - 60), e.y + 14, Math.min(GAME_W - 14, e.x - 36), e.y);
+    // 입구/출구 표시: 경로 방향을 따라 회전한 화살표
+    const arrow = (at: Vec, dir: Vec, color: number) => {
+      const a = Math.atan2(dir.y, dir.x), c = Math.cos(a), sn = Math.sin(a);
+      const pt = (fx: number, fy: number) => ({ x: at.x + fx * c - fy * sn, y: at.y + fx * sn + fy * c });
+      const [p1, p2, p3] = [pt(-12, -14), pt(-12, 14), pt(14, 0)];
+      g.fillStyle(color, 0.92).fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+      g.lineStyle(2, 0x000000, 0.5).strokeTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+    };
+    const clampV = (v: Vec): Vec => ({ x: Phaser.Math.Clamp(v.x, 18, GAME_W - 18), y: Phaser.Math.Clamp(v.y, 58, GAME_H - 80) });
+    for (const p of this.paths.filter((q) => !q.air)) {
+      const s0 = p.at(48), s1 = p.at(56), e0 = p.at(p.total - 56), e1 = p.at(p.total - 48);
+      arrow(clampV(s0), { x: s1.x - s0.x, y: s1.y - s0.y }, 0xc0392b);
+      arrow(clampV(e0), { x: e1.x - e0.x, y: e1.y - e0.y }, 0x2ecc71);
     }
   }
 
@@ -573,7 +582,11 @@ export class GameScene extends Phaser.Scene implements World {
     this.updateHud();
     this.drawBars();
     if (this.paused || this.over || this.adBusy) return;
-    const dt = Math.min(delta, 50) / 1000 * this.speed;
+    this.step(Math.min(delta, 50) / 1000 * this.speed);
+  }
+
+  /** 한 틱 진행. 밸런스 시뮬레이션에서도 직접 호출한다. */
+  step(dt: number) {
     this.clock += dt;
 
     if (this.waveIdx + 1 < this.level.waves.length && this.clock >= this.nextWaveAt) this.startNextWave();

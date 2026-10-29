@@ -1,5 +1,6 @@
 import { LEVELS } from '../src/data/levels.ts';
 import { PathData } from '../src/game/path.ts';
+import { ENEMIES } from '../src/data/enemies.ts';
 
 let bad = 0;
 for (const lv of LEVELS) {
@@ -14,6 +15,12 @@ for (const lv of LEVELS) {
     });
   });
   const total = lv.waves.reduce((a, w) => a + (w.time || 25), 0);
-  console.log(`L${lv.id} ${lv.name}: spots=${lv.spots.length} waves=${lv.waves.length} 예상 ~${Math.round(total / 60 * 10) / 10}분(자동진행 기준)`);
+  let hp = 0, gold = 0, n = 0;
+  for (const w of lv.waves) for (const gr of w.groups) {
+    const d = ENEMIES[gr.kind];
+    hp += gr.count * d.hp / (1 - Math.min(d.armor, d.mr) * 0.5);
+    gold += gr.count * d.gold; n += gr.count;
+  }
+  console.log(`L${String(lv.id).padStart(2)} ${lv.theme.padEnd(7)} 자리=${String(lv.spots.length).padStart(2)} 웨이브=${lv.waves.length} 적=${String(n).padStart(3)} 총HP=${String(Math.round(hp)).padStart(6)} 골드=${String(gold).padStart(5)} 시작골드=${lv.startGold} ~${Math.round((total + 45) / 6) / 10}분`);
 }
 process.exit(bad ? 1 : 0);

@@ -56,6 +56,47 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xd9d9d9).fillTriangle(8, 14, 16, 8, 16, 20).fillTriangle(56, 14, 48, 8, 48, 20);
     });
 
+    tex(this, 'e_golem', 56, 56, (g) => {
+      circ(g, 28, 30, 22, 0x8a8a92);
+      g.fillStyle(0x6e6e78).fillRect(10, 36, 36, 12);
+      g.lineStyle(2, 0x1b1b1b).strokeRect(10, 36, 36, 12);
+      g.fillStyle(0x5a5a64).fillRect(18, 14, 20, 8);
+      g.fillStyle(0xffb020).fillRect(19, 24, 6, 4).fillRect(31, 24, 6, 4);
+      g.fillStyle(0x4f4f58).fillTriangle(8, 20, 18, 12, 18, 26).fillTriangle(48, 20, 38, 12, 38, 26);
+    });
+    tex(this, 'e_bat', 36, 26, (g) => {
+      g.fillStyle(0x4a2a66).fillTriangle(2, 4, 16, 14, 8, 22).fillTriangle(34, 4, 20, 14, 28, 22);
+      circ(g, 18, 15, 7, 0x6a3f8f);
+      g.fillStyle(0x6a3f8f).fillTriangle(12, 6, 15, 10, 11, 12).fillTriangle(24, 6, 21, 10, 25, 12);
+      g.fillStyle(0xff4040).fillCircle(15, 14, 1.6).fillCircle(21, 14, 1.6);
+    });
+    tex(this, 'e_wraith', 34, 40, (g) => {
+      g.fillStyle(0x8fd8d0, 0.35).fillCircle(17, 16, 16);
+      g.fillStyle(0xbdeee8, 0.9).fillTriangle(17, 2, 3, 36, 31, 36);
+      g.fillStyle(0xbdeee8, 0.9).fillCircle(17, 14, 10);
+      g.fillStyle(0x103030).fillCircle(13, 14, 2.5).fillCircle(21, 14, 2.5).fillEllipse(17, 21, 5, 6);
+    });
+    tex(this, 'e_shaman', 38, 44, (g) => {
+      g.fillStyle(0x8a2a3a).fillTriangle(19, 12, 4, 42, 34, 42);
+      g.lineStyle(2, 0x1b1b1b).strokeTriangle(19, 12, 4, 42, 34, 42);
+      circ(g, 19, 16, 9, 0x6bbf3a);
+      g.fillStyle(0x8a2a3a).fillTriangle(19, 0, 8, 14, 30, 14);
+      g.fillStyle(0xffffff).fillCircle(15, 17, 2).fillCircle(23, 17, 2);
+      g.fillStyle(0x8a5a2b).fillRect(33, 10, 2, 30);
+      g.fillStyle(0x66ff88).fillCircle(34, 9, 4);
+    });
+    tex(this, 'e_drake', 96, 70, (g) => {
+      g.fillStyle(0x8a1f1f).fillTriangle(4, 8, 44, 34, 30, 52).fillTriangle(92, 8, 52, 34, 66, 52);
+      g.lineStyle(2, 0x1b1b1b).strokeTriangle(4, 8, 44, 34, 30, 52).strokeTriangle(92, 8, 52, 34, 66, 52);
+      g.fillStyle(0xc0392b).fillEllipse(48, 40, 34, 40);
+      g.lineStyle(2, 0x1b1b1b).strokeEllipse(48, 40, 34, 40);
+      circ(g, 48, 22, 13, 0xd04a3a);
+      g.fillStyle(0xffd34d).fillCircle(42, 20, 3.5).fillCircle(54, 20, 3.5);
+      g.fillStyle(0x1b1b1b).fillCircle(42, 20, 1.5).fillCircle(54, 20, 1.5);
+      g.fillStyle(0xe8dcc0).fillTriangle(38, 8, 42, 2, 44, 10).fillTriangle(58, 8, 54, 2, 52, 10);
+      g.fillStyle(0xff9a30, 0.9).fillTriangle(48, 62, 40, 70, 56, 70);
+    });
+
     // --- 병사 ---
     tex(this, 'soldier', 22, 24, (g) => {
       circ(g, 11, 14, 8, 0x3a7bd5);

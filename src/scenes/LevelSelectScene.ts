@@ -25,8 +25,8 @@ export class LevelSelectScene extends Phaser.Scene {
         unlocked ? 0x3b6fb6 : 0x333344, 15);
       b.setEnabled(unlocked);
       b.label.setWordWrapWidth(116).setAlign('center').setY(y - 10);
-      if (lv) text(this, x, y + 26, '★'.repeat(stars) + '☆'.repeat(3 - stars), 18, '#ffd34d');
-      else b.setLabel(`${i + 1}\n${t('soon')}`);
+      if (lv && unlocked) text(this, x, y + 26, '★'.repeat(stars) + '☆'.repeat(3 - stars), 18, '#ffd34d');
+      else if (!lv) b.setLabel(`${i + 1}\n${t('soon')}`);
     }
   }
 }

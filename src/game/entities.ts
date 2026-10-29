@@ -32,6 +32,7 @@ export class Enemy {
   private slowMul = 1;
   private slowT = 0;
   private stunT = 0;
+  private healT = 0;
 
   constructor(private w: World, kind: EnemyKind, readonly path: PathData) {
     this.def = ENEMIES[kind];
@@ -69,6 +70,17 @@ export class Enemy {
     else if (this.slowT > 0 || this.stunT > 0) this.img.setTint(0x99ccff);
     else this.img.clearTint();
     if (this.stunT > 0) { this.stunT -= dt; return; }
+    const heal = this.def.heal;
+    if (heal && (this.healT -= dt) <= 0) {
+      this.healT = heal.every;
+      let any = false;
+      for (const e of this.w.enemies) {
+        if (e === this || e.dead || e.hp >= e.maxHp || dist(e, this) > heal.radius) continue;
+        e.hp = Math.min(e.maxHp, e.hp + e.maxHp * heal.pct);
+        any = true;
+      }
+      if (any) this.w.splashFx(this.x, this.y, heal.radius * 0.55, 0x66ff88);
+    }
     if (this.blocker?.dead) this.blocker = null;
     if (this.blocker && dist(this.blocker, this) < 30) {
       if ((this.atk -= dt) <= 0) { this.atk = 1; this.blocker.hurt(this.def.dmg); }
