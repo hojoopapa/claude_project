@@ -8,7 +8,8 @@ import { Enemy, Hero, Projectile, Soldier, Tower, World } from '../game/entities
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { ads } from '../ads';
-import { saveStars } from '../save';
+import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen } from '../save';
+import { DIFFICULTIES, Features, featuresFor, TUTORIAL_STAGES } from '../data/features';
 import { Btn, button, text } from '../ui';
 
 interface Spot { pos: Vec; img: Phaser.GameObjects.Image; tower: Tower | null }
@@ -48,6 +49,10 @@ export class GameScene extends Phaser.Scene implements World {
   private revived = false;
   private adBusy = false;
   private adGoldReady = 0;
+  private features!: Features;
+  hpMul = 1;
+  private modal = false;
+  private tutShown = new Set<string>();
 
   private unlocked = new Set<string>();
   private heroes: Record<HeroKind, { hero: Hero | null; respawn: number; cd: number }> = {
@@ -81,13 +86,16 @@ export class GameScene extends Phaser.Scene implements World {
     this.spellCd = { fire: 0, reinf: 0 };
     this.unlocked = new Set();
     this.heroes = { knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 } };
-    this.selHero = null; this.tip = null; this.dialog = [];
+    this.selHero = null; this.tip = null; this.dialog = []; this.modal = false; this.tutShown = new Set();
   }
 
   create() {
     this.level = LEVELS[this.index];
-    this.gold = this.level.startGold;
-    this.lives = this.maxLives = this.level.lives;
+    this.features = featuresFor(this.level.id);
+    const diff = DIFFICULTIES[getDifficulty()];
+    this.hpMul = diff.hp;
+    this.gold = Math.round(this.level.startGold * diff.gold);
+    this.lives = this.maxLives = this.level.lives + diff.lives;
     this.paths = this.level.paths.map((p) => new PathData(p.pts, p.air));
     this.nextWaveAt = Infinity;
 
@@ -113,7 +121,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.input.keyboard?.on('keydown-SPACE', () => this.togglePause());
 
     this.showBanner(`${this.level.id}. ${t('level.' + this.level.id)}`, t('startHint'));
-    this.nextWaveAt = this.clock + 12; // 첫 웨이브 전 준비 시간
+    this.nextWaveAt = this.clock + (this.level.id <= TUTORIAL_STAGES ? 25 : 12); // 첫 웨이브 전 준비 시간
   }
 
   // ---------- World ----------
@@ -203,22 +211,29 @@ export class GameScene extends Phaser.Scene implements World {
       hint: text(this, GAME_W / 2, 70, '', 22, '#ffffff').setDepth(901).setVisible(false),
     };
     const d = (b: Btn) => { b.bg.setDepth(901); b.label.setDepth(902); return b; };
-    const y = GAME_H - 40;
+    const y = GAME_H - 40, f = this.features;
+    // 열려 있는 스펠만 왼쪽부터 차례로 배치
+    const spellX = (k: Spell) => 48 + (['fire', 'reinf'] as Spell[]).filter((q) => f[q]).indexOf(k) * 86;
     this.buttons = {
       pause: d(button(this, GAME_W - 28, 18, 44, 28, 'II', () => this.togglePause(), 0x555566, 16)),
       speed: d(button(this, GAME_W - 82, 18, 54, 28, 'x1', () => this.toggleSpeed(), 0x555566, 16)),
-      fire: d(button(this, 48, y, 80, 56, t('fire'), () => this.pickSpell('fire'), 0xc0541f, 15)),
-      reinf: d(button(this, 134, y, 80, 56, t('reinf'), () => this.pickSpell('reinf'), 0x2f7bd0, 15)),
+      fire: d(button(this, spellX('fire'), y, 80, 56, t('fire'), () => this.pickSpell('fire'), 0xc0541f, 15)),
+      reinf: d(button(this, spellX('reinf'), y, 80, 56, t('reinf'), () => this.pickSpell('reinf'), 0x2f7bd0, 15)),
       ad: d(button(this, 490, y, 140, 56, '', () => this.watchAdGold(), 0x8a5bd0, 14)),
       next: d(button(this, GAME_W - 90, y, 150, 56, '', () => this.callNextWave(), 0x3b8f4a, 16)),
     };
+    this.buttons.fire.setVisible(f.fire);
+    this.buttons.reinf.setVisible(f.reinf);
+    this.buttons.ad.setVisible(f.adGold);
     const mkHero = (k: HeroKind, x: number) => ({
       pick: d(button(this, x, y, 96, 56, '', () => this.pickHero(k), 0x8a5a2b, 14)),
       skill: d(button(this, x, y - 44, 96, 26, t('skill.' + k), () => this.useAbility(k), 0x2f8f8f, 14)),
     });
     this.heroBtns = { knight: mkHero('knight', 240), sorc: mkHero('sorc', 344) };
     (['knight', 'sorc'] as HeroKind[]).forEach((k) => {
-      this.add.image(this.heroBtns[k].pick.bg.x - 30, y, HEROES[k].tex).setScale(0.8).setDepth(903);
+      const icon = this.add.image(this.heroBtns[k].pick.bg.x - 30, y, HEROES[k].tex).setScale(0.8).setDepth(903);
+      icon.setVisible(f.heroes);
+      if (!f.heroes) { this.heroBtns[k].pick.setVisible(false); this.heroBtns[k].skill.setVisible(false); }
     });
   }
 
@@ -228,16 +243,21 @@ export class GameScene extends Phaser.Scene implements World {
     this.hud.gold.setText(t('gold', { n: Math.floor(this.gold) }));
     const total = this.level.waves.length;
     this.hud.wave.setText(t('wave', { n: Math.max(0, this.waveIdx + 1), m: total }));
+    const f = this.features;
     for (const k of ['fire', 'reinf'] as Spell[]) {
+      if (!f[k]) continue;
       const cd = this.spellCd[k];
       const name = t(k);
       b[k].setLabel(cd > 0 ? `${name}\n${Math.ceil(cd)}s` : this.spell === k ? `${name}\n${t('selected')}` : name);
       b[k].setEnabled(cd <= 0);
     }
-    const adWait = Math.ceil((this.adGoldReady - performance.now()) / 1000);
-    b.ad.setLabel(adWait > 0 ? t('adWait', { s: adWait }) : t('adGold', { n: AD_GOLD }));
-    b.ad.setEnabled(adWait <= 0 && !this.adBusy);
+    if (f.adGold) {
+      const adWait = Math.ceil((this.adGoldReady - performance.now()) / 1000);
+      b.ad.setLabel(adWait > 0 ? t('adWait', { s: adWait }) : t('adGold', { n: AD_GOLD }));
+      b.ad.setEnabled(adWait <= 0 && !this.adBusy);
+    }
     for (const k of ['knight', 'sorc'] as HeroKind[]) {
+      if (!f.heroes) break;
       const st = this.heroes[k], ui = this.heroBtns[k], name = t('hero.' + k);
       const on = this.unlocked.has(k);
       if (!on) ui.pick.setLabel(`${name}\n[${t('adTag')}]`);
@@ -314,13 +334,17 @@ export class GameScene extends Phaser.Scene implements World {
   }
 
   private openBuildMenu(spot: Spot) {
+    if (this.tutorial('build', () => this.openBuildMenu(spot))) return;
     this.closeMenu();
     const c = this.clampCenter(spot.pos.x, spot.pos.y);
     this.menu.push(this.add.circle(c.x, c.y, 100, 0x000000, 0.25).setStrokeStyle(2, 0xffffff, 0.4).setDepth(999));
     this.tip = text(this, c.x, c.y, '', 12, '#ffffff').setDepth(1003).setWordWrapWidth(84).setAlign('center');
     this.menu.push(this.tip);
-    const kinds: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon', 'frost', 'thunder'];
-    const offs = [[0, -70], [61, -35], [61, 35], [0, 70], [-61, 35], [-61, -35]];
+    const all: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon', 'frost', 'thunder'];
+    const kinds = all.filter((k) => !TOWERS[k].adLock || this.features.adTowers);
+    const offs = kinds.length > 4
+      ? [[0, -70], [61, -35], [61, 35], [0, 70], [-61, 35], [-61, -35]]
+      : [[0, -66], [66, 0], [0, 66], [-66, 0]];
     kinds.forEach((k, i) => {
       const def = TOWERS[k], cost = def.levels[0].cost;
       const locked = !!def.adLock && !this.unlocked.has(k);
@@ -333,18 +357,24 @@ export class GameScene extends Phaser.Scene implements World {
     });
   }
 
+  /** 이 스테이지에서 타워를 한 단계 더 올릴 수 있는지 */
+  private canUpgrade(tw: Tower) {
+    return !tw.maxed && tw.level + 1 < this.features.maxTowerLevel;
+  }
+
   private openTowerMenu(spot: Spot) {
-    this.closeMenu();
     const tw = spot.tower!;
+    if (this.features.maxTowerLevel > 1 && this.tutorial('upgrade', () => this.openTowerMenu(spot))) return;
+    this.closeMenu();
     const c = this.clampCenter(spot.pos.x, spot.pos.y);
     this.menu.push(this.add.circle(spot.pos.x, spot.pos.y, tw.lv.range, 0xffffff, 0.12).setStrokeStyle(2, 0xffffff, 0.5).setDepth(998));
     this.menu.push(text(this, c.x, c.y - 100, `${t('tower.' + tw.kind)} Lv.${tw.level + 1}`, 16).setDepth(1002));
-    if (!tw.maxed) {
+    if (this.canUpgrade(tw)) {
       this.menuButton(c.x, c.y - 62, null, '▲', `${tw.upgradeCost}`, this.gold >= tw.upgradeCost, () => {
         if (this.gold < tw.upgradeCost) return;
         this.gold -= tw.upgradeCost; tw.upgrade(); this.floatText(spot.pos.x, spot.pos.y - 50, t('levelUp'), '#9fe870'); this.closeMenu();
       });
-    } else {
+    } else if (this.features.maxTowerLevel > 1) {
       this.menuButton(c.x, c.y - 62, null, 'MAX', '', false, () => {});
     }
     this.menuButton(c.x, c.y + 62, null, '$', `+${tw.sellValue}`, true, () => {
@@ -353,6 +383,30 @@ export class GameScene extends Phaser.Scene implements World {
       spot.tower = null; spot.img.setVisible(true).setInteractive();
       this.closeMenu();
     });
+  }
+
+  // ---------- 튜토리얼 설명창 ----------
+  /**
+   * 튜토리얼 구간(1~4번)에서 새 기능을 처음 쓰면 게임을 멈추고 설명창을 띄운다.
+   * 설명창을 띄웠으면 true를 돌려주고, 닫은 뒤 then 을 다시 실행한다.
+   */
+  private tutorial(key: string, then: () => void): boolean {
+    if (this.level.id > TUTORIAL_STAGES || this.modal || this.tutShown.has(key) || tutorialSeen(key)) return false;
+    this.modal = true;
+    this.tutShown.add(key);
+    markTutorialSeen(key);
+    const ui: Phaser.GameObjects.GameObject[] = [];
+    const close = () => { ui.forEach((o) => o.destroy()); this.modal = false; then(); };
+    const shade = this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.65).setDepth(3000).setInteractive();
+    shade.setData('ui', true);
+    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 620, 300, 0x20263a).setStrokeStyle(4, 0xffe9a0).setDepth(3001);
+    const title = text(this, GAME_W / 2, GAME_H / 2 - 112, t(`tut.${key}.title`), 26, '#ffe9a0').setDepth(3002);
+    const body = text(this, GAME_W / 2, GAME_H / 2 - 10, t(`tut.${key}.body`), 17, '#ffffff')
+      .setDepth(3002).setWordWrapWidth(560).setAlign('center').setLineSpacing(6);
+    const ok = button(this, GAME_W / 2, GAME_H / 2 + 112, 180, 46, t('ok'), close, 0x3b8f4a, 20);
+    ok.bg.setDepth(3002); ok.label.setDepth(3003);
+    ui.push(shade, panel, title, body, ok.bg, ok.label);
+    return true;
   }
 
   private buildTower(spot: Spot, kind: TowerKind) {
@@ -383,7 +437,7 @@ export class GameScene extends Phaser.Scene implements World {
   }
 
   private async pickHero(k: HeroKind) {
-    if (this.over || this.adBusy) return;
+    if (!this.features.heroes || this.over || this.adBusy) return;
     this.closeMenu();
     if (!this.unlocked.has(k)) {
       const ok = await this.unlockWithAd(k, t('hero.' + k));
@@ -444,6 +498,7 @@ export class GameScene extends Phaser.Scene implements World {
 
   private callNextWave() {
     if (this.over || this.waveIdx + 1 >= this.level.waves.length) return;
+    if (this.tutorial('nextwave', () => this.callNextWave())) return;
     const bonus = this.earlyBonus();
     if (bonus > 0 && this.waveIdx >= 0) { this.gold += bonus; this.floatText(GAME_W - 90, GAME_H - 80, t('early', { n: bonus }), '#9fe870'); }
     this.startNextWave();
@@ -451,7 +506,8 @@ export class GameScene extends Phaser.Scene implements World {
 
   // ---------- 스펠 ----------
   private pickSpell(s: Spell) {
-    if (this.spellCd[s] > 0 || this.over) return;
+    if (!this.features[s] || this.spellCd[s] > 0 || this.over) return;
+    if (this.tutorial(s, () => this.pickSpell(s))) return;
     this.closeMenu();
     this.spell = this.spell === s ? null : s;
     if (this.spell) this.showBanner(t(s), t('castHint'), true);
@@ -520,7 +576,7 @@ export class GameScene extends Phaser.Scene implements World {
   }
 
   private async watchAdGold() {
-    if (this.adBusy || this.over) return;
+    if (!this.features.adGold || this.adBusy || this.over) return;
     this.adBusy = true;
     let ok = false;
     try { ok = await ads.showRewarded(t('reasonGold', { n: AD_GOLD })); } finally { this.adBusy = false; }
@@ -581,7 +637,7 @@ export class GameScene extends Phaser.Scene implements World {
   update(_time: number, delta: number) {
     this.updateHud();
     this.drawBars();
-    if (this.paused || this.over || this.adBusy) return;
+    if (this.paused || this.over || this.adBusy || this.modal) return;
     this.step(Math.min(delta, 50) / 1000 * this.speed);
   }
 

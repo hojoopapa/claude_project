@@ -13,6 +13,8 @@ export interface World {
   gainGold(n: number, x: number, y: number): void;
   leak(lives: number): void;
   splashFx(x: number, y: number, r: number, color: number): void;
+  /** 난이도에 따른 적 체력 배율 */
+  readonly hpMul: number;
 }
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -36,7 +38,7 @@ export class Enemy {
 
   constructor(private w: World, kind: EnemyKind, readonly path: PathData) {
     this.def = ENEMIES[kind];
-    this.hp = this.maxHp = this.def.hp;
+    this.hp = this.maxHp = this.def.hp * w.hpMul;
     const p = path.at(0);
     this.x = p.x; this.y = p.y;
     this.img = w.gs.add.image(p.x, p.y, this.def.tex).setScale(this.def.scale);

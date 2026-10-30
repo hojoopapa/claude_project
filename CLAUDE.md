@@ -17,6 +17,8 @@ Kingdom Rush 스타일 웹 타워 디펜스. 서버 없는 정적 웹게임이�
 - 적 10종: 고블린, 늑대, 오크, 도깨비불(공중), 박쥐(공중), 망령(마법 저항), 주술사(주변 회복), 바위 골렘(고방어), 오우거(보스), 화염 비룡(공중 보스).
 - 영웅 2명(광고 해제): 기사 알드릭(근접, 강타), 마법사 리라(원거리, 빙결).
 - 스펠 2종(화염비, 지원군), 조기 호출 보너스, 2배속, 일시정지.
+- **튜토리얼 구간(스테이지 1~4)**: 기능을 하나씩 연다 (`src/data/features.ts`의 `featuresFor`). 1번은 기본 타워 4종의 1단계만(업그레이드 없음, 스펠 없음), 2번은 2단계까지 강화, 3번은 지원군 추가, 4번은 화염비 추가. **5번부터** 3단계 강화, 영웅, 광고 보고 골드, 냉기·번개탑(광고 해제)이 모두 열린다. 1~4번에서 새 기능을 처음 쓰면 게임이 멈추고 설명창이 뜬다 (건설, 강화, 지원군, 화염비, 웨이브 호출; 본 기록은 localStorage, 주소에 `?tutorial=always`를 붙이면 매번 표시).
+- **난이도 3단계**(스테이지 선택 화면 오른쪽 위 버튼, localStorage 저장): 쉬움(적 체력 x0.75, 시작 골드 x1.25, 생명 25), 보통(기준, 생명 20), 어려움(적 체력 x1.25, 시작 골드 x0.9, 생명 15). 값은 `features.ts`의 `DIFFICULTIES`. 별 기록은 난이도와 상관없이 공유한다.
 - 광고는 테스트용 모의 구현(MockAds, 기본 30초, `?adsec=3`으로 단축).
 
 ## 명령어
@@ -26,7 +28,7 @@ npm run dev            # 개발 서버
 npm run build          # tsc 검사 + dist/ 생성
 npm run build:single   # dist/single.html (단일 파일 미리보기용)
 npm run check-levels   # 타워 자리/경로 검증, 스테이지별 총 HP/골드/예상 시간
-node scripts/balance-sim.cjs . 1,5,20   # 봇 시뮬레이션 (dev 서버 --port 5199 필요, playwright 필요)
+node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막 인자는 난이도 (dev 서버 --port 5199 필요, playwright 필요)
 ```
 
 ## 구조
@@ -34,6 +36,7 @@ node scripts/balance-sim.cjs . 1,5,20   # 봇 시뮬레이션 (dev 서버 --port
 - `src/data/wavegen.ts` — 웨이브 생성기. 난이도 곡선 상수는 맨 위의 `BASE0`, `BASE_STEP`, `WAVE_GROWTH`.
 - `src/data/autospots.ts` — 경로 옆에서 사거리 커버가 큰 타워 자리를 자동 선택.
 - `src/data/towers.ts`, `enemies.ts`, `heroes.ts` — 능력치 테이블. 밸런스는 여기서 조정.
+- `src/data/features.ts` — 스테이지별 해금 기능과 난이도 배율. 새 기능을 추가하면 `featuresFor`와 필요한 설명창(`i18n.ts`의 `tut.<키>.title/body`)을 함께 넣는다.
 - `src/game/entities.ts` — Enemy / Soldier / Hero / Tower / Projectile.
 - `src/scenes/GameScene.ts` — 전투 루프, UI, 건설 메뉴, 광고 흐름.
 - `src/i18n.ts` — 번역. 새 언어는 `LANGS`와 각 키의 배열 끝에 추가.

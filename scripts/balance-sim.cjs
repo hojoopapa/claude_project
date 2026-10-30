@@ -1,9 +1,10 @@
 // 밸런스 시뮬레이터: 기본 타워 + 스펠만 쓰는 봇이 각 스테이지를 어떻게 푸는지 본다.
-// 사용법: npm run dev (5199 포트) 후  node scripts/balance-sim.cjs <출력폴더> [스테이지,스테이지...]
+// 사용법: npm run dev (5199 포트) 후  node scripts/balance-sim.cjs <출력폴더> [스테이지,스테이지...] [난이도 0|1|2]
 // playwright가 필요하다. 봇은 영웅/광고 해제 타워를 쓰지 않으므로 사람보다 약하다.
 const { chromium } = require('playwright');
 const SP = process.argv[2] || '.';
 const only = process.argv[3] ? process.argv[3].split(',').map(Number) : null;
+const DIFF = process.argv[4] ?? '1';
 (async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 960, height: 640 } });
@@ -12,6 +13,8 @@ const only = process.argv[3] ? process.argv[3].split(',').map(Number) : null;
   pg.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text()); });
   await pg.goto('http://localhost:5199/');
   await pg.waitForTimeout(1200);
+  await pg.evaluate((d) => { localStorage.setItem('realmguard.difficulty.v1', d); }, DIFF);
+  console.log('난이도', ['쉬움', '보통', '어려움'][DIFF]);
   console.log('lvl  결과  남은생명  시간(s)  웨이브  타워  남은골드');
   for (let i = 0; i < 20; i++) {
     if (only && !only.includes(i + 1)) continue;
@@ -25,11 +28,11 @@ const only = process.argv[3] ? process.argv[3].split(',').map(Number) : null;
       let k = 0, steps = 0; const wl = []; let lastW = -2;
       const lead = () => s.enemies.reduce((a, b) => (!a || b.d > a.d ? b : a), null);
       while (!s.over && steps < 20000) {
-        if (s.spellCd.fire <= 0 && s.enemies.length >= 5) { const l = lead(); s.castSpell('fire', l.x, l.y); }
-        if (s.spellCd.reinf <= 0 && s.enemies.length > 0) { const l = lead(); s.castSpell('reinf', l.x, l.y); }
+        if (s.features.fire && s.spellCd.fire <= 0 && s.enemies.length >= 5) { const l = lead(); s.castSpell('fire', l.x, l.y); }
+        if (s.features.reinf && s.spellCd.reinf <= 0 && s.enemies.length > 0) { const l = lead(); s.castSpell('reinf', l.x, l.y); }
         const free = s.spots.filter(x => !x.tower);
         let up = null;
-        for (const t of s.towers) if (!t.maxed && s.gold >= t.upgradeCost && (!up || t.upgradeCost < up.upgradeCost)) up = t;
+        for (const t of s.towers) if (s.canUpgrade(t) && s.gold >= t.upgradeCost && (!up || t.upgradeCost < up.upgradeCost)) up = t;
         const kind = order[k % order.length];
         const canBuild = free.length && s.gold >= COST[kind];
         if (up && (s.towers.length >= 6 || !free.length) && !(s.towers.length < 6)) { s.gold -= up.upgradeCost; up.upgrade(); }
