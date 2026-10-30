@@ -1,0 +1,102 @@
+{
+ "e_bat": {
+  "file": "enemies/e_bat.png",
+  "w": 80,
+  "h": 56
+ },
+ "e_drake": {
+  "file": "enemies/e_drake.png",
+  "w": 200,
+  "h": 150
+ },
+ "e_goblin": {
+  "file": "enemies/e_goblin.png",
+  "w": 64,
+  "h": 64
+ },
+ "e_golem": {
+  "file": "enemies/e_golem.png",
+  "w": 120,
+  "h": 120
+ },
+ "e_ogre": {
+  "file": "enemies/e_ogre.png",
+  "w": 140,
+  "h": 140
+ },
+ "e_orc": {
+  "file": "enemies/e_orc.png",
+  "w": 88,
+  "h": 88
+ },
+ "e_shaman": {
+  "file": "enemies/e_shaman.png",
+  "w": 84,
+  "h": 96
+ },
+ "e_wisp": {
+  "file": "enemies/e_wisp.png",
+  "w": 64,
+  "h": 64
+ },
+ "e_wolf": {
+  "file": "enemies/e_wolf.png",
+  "w": 88,
+  "h": 64
+ },
+ "e_wraith": {
+  "file": "enemies/e_wraith.png",
+  "w": 76,
+  "h": 88
+ },
+ "h_knight": {
+  "file": "heroes/h_knight.png",
+  "w": 80,
+  "h": 92
+ },
+ "h_sorc": {
+  "file": "heroes/h_sorc.png",
+  "w": 80,
+  "h": 96
+ },
+ "soldier": {
+  "file": "heroes/soldier.png",
+  "w": 52,
+  "h": 60
+ },
+ "spot": {
+  "file": "towers/spot.png",
+  "w": 112,
+  "h": 66
+ },
+ "t_archer_1": {
+  "file": "towers/t_archer_1.png",
+  "w": 128,
+  "h": 160
+ },
+ "t_barracks_1": {
+  "file": "towers/t_barracks_1.png",
+  "w": 128,
+  "h": 160
+ },
+ "t_cannon_1": {
+  "file": "towers/t_cannon_1.png",
+  "w": 128,
+  "h": 160
+ },
+ "t_frost_1": {
+  "file": "towers/t_frost_1.png",
+  "w": 128,
+  "h": 160
+ },
+ "t_mage_1": {
+  "file": "towers/t_mage_1.png",
+  "w": 128,
+  "h": 160
+ },
+ "t_thunder_1": {
+  "file": "towers/t_thunder_1.png",
+  "w": 128,
+  "h": 160
+ }
+}

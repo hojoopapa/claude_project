@@ -39,8 +39,13 @@ export const SKIN_SCALE = 0.5;
 /** 이미지 키와 배율. 타워는 level(0부터)을 주면 t_<종류>_<레벨> 이미지를 우선 쓴다. */
 export function texFor(base: string, level?: number): { key: string; scale: number } {
   if (level !== undefined) {
-    const k = `${base.replace(/_\d$/, '')}_${level + 1}`;
-    if (loaded.has(k)) return { key: k, scale: SKIN_SCALE };
+    const stem = base.replace(/_\d$/, '');
+    // 해당 레벨 그림이 없으면 낮은 레벨 그림을 대신 쓴다 (이미지 스킨에서 레벨 1만 있을 때 스타일이 섞이지 않게)
+    for (let l = level; l >= 0; l--) {
+      const k = `${stem}_${l + 1}`;
+      if (loaded.has(k)) return { key: k, scale: SKIN_SCALE };
+    }
+    return { key: stem, scale: 1 };
   }
   return loaded.has(base) ? { key: base, scale: SKIN_SCALE } : { key: base.replace(/_\d$/, ''), scale: 1 };
 }
@@ -52,7 +57,14 @@ export type SkinIndex = Record<string, SkinEntry>;
 export function mergeIndex(skin: SkinId, svg: SkinIndex | undefined, image: SkinIndex | undefined) {
   const out: Record<string, SkinEntry & { kind: 'svg' | 'image' }> = {};
   for (const [k, v] of Object.entries(svg ?? {})) out[k] = { ...v, kind: 'svg' };
-  if (skin === 'image') for (const [k, v] of Object.entries(image ?? {})) out[k] = { ...v, kind: 'image' };
+  if (skin === 'image') {
+    for (const [k, v] of Object.entries(image ?? {})) out[k] = { ...v, kind: 'image' };
+    // 이미지 스킨에 그 종류의 타워가 있으면, 이미지가 없는 상위 레벨은 SVG 대신 낮은 레벨 이미지를 쓰도록 SVG 항목을 뺀다
+    for (const k of Object.keys(out)) {
+      const m = /^(t_[a-z]+)_(\d)$/.exec(k);
+      if (m && out[k].kind === 'svg' && image?.[`${m[1]}_1`]) delete out[k];
+    }
+  }
   return out;
 }
 
