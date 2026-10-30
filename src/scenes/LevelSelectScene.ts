@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_W } from '../config';
 import { LEVELS } from '../data/levels';
-import { getStars } from '../save';
+import { getDifficulty, getStars, setDifficulty } from '../save';
 import { button, text } from '../ui';
 import { t } from '../i18n';
 
@@ -14,6 +14,12 @@ export class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x1b2a3a);
     text(this, GAME_W / 2, 44, t('stageSelect'), 34, '#ffe9a0');
     button(this, 70, 44, 100, 40, t('back'), () => this.scene.start('Menu'), 0x555566, 16);
+    const diff = getDifficulty();
+    const colors = [0x2f8f4a, 0x3b6fb6, 0xb03a2e];
+    button(this, GAME_W - 110, 44, 190, 40, `${t('difficulty')}: ${t('diff.' + diff)}`, () => {
+      setDifficulty(((diff + 1) % 3) as 0 | 1 | 2);
+      this.scene.restart();
+    }, colors[diff], 16);
 
     const cols = 5, cw = 150, ch = 100, x0 = GAME_W / 2 - (cols - 1) * cw / 2, y0 = 130;
     for (let i = 0; i < TOTAL_SLOTS; i++) {
