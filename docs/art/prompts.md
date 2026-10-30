@@ -1,7 +1,7 @@
 # ChatGPT 그래픽 프롬프트 모음
 
 Realm Guard의 그래픽을 ChatGPT(이미지 생성)로 만들 때 쓰는 프롬프트다. 사용 순서와 파일 이름 규칙은 `docs/art/README.md`를 먼저 본다.
-이 문서는 `docs/art/manifest.json`과 같은 내용에서 만들었다. 에셋을 추가하거나 바꿀 때는 두 파일을 함께 고친다.
+이 프롬프트는 ChatGPT, Gemini 등 어떤 이미지 생성 서비스에도 그대로 쓴다 (Gemini 팁은 `docs/art/README.md` 맨 아래). 이 문서는 `docs/art/manifest.json`과 같은 내용에서 만들었다. 에셋을 추가하거나 바꿀 때는 두 파일을 함께 고친다.
 
 ## 0. 스타일 가이드 (대화 맨 처음에 한 번 붙여넣기)
 

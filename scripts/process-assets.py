@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""ChatGPT 원본(assets-inbox/)을 게임용 PNG(public/assets/)로 변환한다.
+"""이미지 생성 AI(Gemini, ChatGPT 등)가 만든 원본(assets-inbox/)을 게임용 PNG(public/skins/image/)로 변환한다.
 
 - 파일 이름이 docs/art/manifest.json 의 key 와 정확히 같아야 한다 (예: t_archer_1.png). 하위 폴더는 상관없다.
 - 캐릭터/타워/소품: 마젠타(#FF00FF) 배경을 투명하게 만들고(가장자리 번짐 제거), 여백을 자르고,
   manifest 의 out_w x out_h 안에 비율을 유지해 맞춘 뒤 캔버스에 배치한다 (땅에 서는 것은 아래 중앙, 공중/효과는 중앙).
 - 타일(g_*, r_*): 중앙 정사각형으로 잘라 out 크기로 줄인다. 배경 제거는 하지 않는다.
-- 결과 목록은 public/assets/index.json 에 쓴다 (게임이 어떤 에셋이 있는지 확인할 때 쓴다).
+- 이미지 오른쪽 아래 모서리(12% x 12%)는 마젠타로 덮는다 (생성 서비스가 넣는 워터마크 제거용. 피사체는 모서리에 닿지 않게 만든다. 끄려면 --keep-corner).
+- 결과 목록은 public/skins/image/index.json 에 쓴다. 게임은 이 목록에 있는 그림을 쓰고, 없는 그림은 SVG 스킨으로 대신한다.
 
-사용법: python3 scripts/process-assets.py [--inbox assets-inbox] [--out public/assets]
+사용법: python3 scripts/process-assets.py [--inbox assets-inbox] [--out public/skins/image] [--keep-corner]
 필요: pip install pillow numpy
 """
 import argparse, json, pathlib, sys
@@ -16,6 +17,13 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CENTER = {'e_wisp', 'e_bat', 'e_drake', 'spot', 'p_arrow', 'p_orb', 'p_ball'}
+
+
+def clean_corner(im: Image.Image) -> Image.Image:
+    im = im.convert('RGB').copy()
+    w, h = im.size
+    im.paste((255, 0, 255), (int(w * 0.88), int(h * 0.88), w, h))
+    return im
 
 
 def key_magenta(im: Image.Image) -> Image.Image:
@@ -49,7 +57,8 @@ def fit(im: Image.Image, w: int, h: int, bottom: bool) -> Image.Image:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--inbox', default=str(ROOT / 'assets-inbox'))
-    ap.add_argument('--out', default=str(ROOT / 'public/assets'))
+    ap.add_argument('--out', default=str(ROOT / 'public/skins/image'))
+    ap.add_argument('--keep-corner', action='store_true')
     args = ap.parse_args()
     inbox, out = pathlib.Path(args.inbox), pathlib.Path(args.out)
     manifest = json.load(open(ROOT / 'docs/art/manifest.json', encoding='utf8'))
@@ -73,7 +82,7 @@ def main():
                 res = im.resize((a['out_w'], a['out_h']), Image.LANCZOS).convert('RGBA')
             else:
                 bottom = key not in CENTER
-                res = fit(key_magenta(im), a['out_w'], a['out_h'], bottom)
+                res = fit(key_magenta(im if args.keep_corner else clean_corner(im)), a['out_w'], a['out_h'], bottom)
             dst = out / a['category'] / f'{key}.png'
             dst.parent.mkdir(parents=True, exist_ok=True)
             res.save(dst, optimize=True)

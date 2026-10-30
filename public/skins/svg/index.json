@@ -1,0 +1,252 @@
+{
+ "t_archer_1": {
+  "file": "towers/t_archer_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_archer_2": {
+  "file": "towers/t_archer_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_archer_3": {
+  "file": "towers/t_archer_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_mage_1": {
+  "file": "towers/t_mage_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_mage_2": {
+  "file": "towers/t_mage_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_mage_3": {
+  "file": "towers/t_mage_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_cannon_1": {
+  "file": "towers/t_cannon_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_cannon_2": {
+  "file": "towers/t_cannon_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_cannon_3": {
+  "file": "towers/t_cannon_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_barracks_1": {
+  "file": "towers/t_barracks_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_barracks_2": {
+  "file": "towers/t_barracks_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_barracks_3": {
+  "file": "towers/t_barracks_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_frost_1": {
+  "file": "towers/t_frost_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_frost_2": {
+  "file": "towers/t_frost_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_frost_3": {
+  "file": "towers/t_frost_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_thunder_1": {
+  "file": "towers/t_thunder_1.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_thunder_2": {
+  "file": "towers/t_thunder_2.svg",
+  "w": 128,
+  "h": 160
+ },
+ "t_thunder_3": {
+  "file": "towers/t_thunder_3.svg",
+  "w": 128,
+  "h": 160
+ },
+ "e_goblin": {
+  "file": "enemies/e_goblin.svg",
+  "w": 64,
+  "h": 64
+ },
+ "e_wolf": {
+  "file": "enemies/e_wolf.svg",
+  "w": 88,
+  "h": 64
+ },
+ "e_orc": {
+  "file": "enemies/e_orc.svg",
+  "w": 88,
+  "h": 88
+ },
+ "e_wisp": {
+  "file": "enemies/e_wisp.svg",
+  "w": 64,
+  "h": 64
+ },
+ "e_bat": {
+  "file": "enemies/e_bat.svg",
+  "w": 80,
+  "h": 56
+ },
+ "e_wraith": {
+  "file": "enemies/e_wraith.svg",
+  "w": 76,
+  "h": 88
+ },
+ "e_shaman": {
+  "file": "enemies/e_shaman.svg",
+  "w": 84,
+  "h": 96
+ },
+ "e_golem": {
+  "file": "enemies/e_golem.svg",
+  "w": 120,
+  "h": 120
+ },
+ "e_ogre": {
+  "file": "enemies/e_ogre.svg",
+  "w": 140,
+  "h": 140
+ },
+ "e_drake": {
+  "file": "enemies/e_drake.svg",
+  "w": 200,
+  "h": 150
+ },
+ "h_knight": {
+  "file": "heroes/h_knight.svg",
+  "w": 80,
+  "h": 92
+ },
+ "h_sorc": {
+  "file": "heroes/h_sorc.svg",
+  "w": 80,
+  "h": 96
+ },
+ "soldier": {
+  "file": "heroes/soldier.svg",
+  "w": 52,
+  "h": 60
+ },
+ "spot": {
+  "file": "towers/spot.svg",
+  "w": 112,
+  "h": 66
+ },
+ "p_arrow": {
+  "file": "fx/p_arrow.svg",
+  "w": 48,
+  "h": 16
+ },
+ "p_orb": {
+  "file": "fx/p_orb.svg",
+  "w": 40,
+  "h": 40
+ },
+ "p_ball": {
+  "file": "fx/p_ball.svg",
+  "w": 40,
+  "h": 40
+ },
+ "d_meadow_tree": {
+  "file": "props/d_meadow_tree.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_meadow_bush": {
+  "file": "props/d_meadow_bush.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_meadow_rock": {
+  "file": "props/d_meadow_rock.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_desert_palm": {
+  "file": "props/d_desert_palm.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_desert_cactus": {
+  "file": "props/d_desert_cactus.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_desert_rock": {
+  "file": "props/d_desert_rock.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_swamp_tree": {
+  "file": "props/d_swamp_tree.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_swamp_mushroom": {
+  "file": "props/d_swamp_mushroom.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_swamp_reeds": {
+  "file": "props/d_swamp_reeds.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_snow_pine": {
+  "file": "props/d_snow_pine.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_snow_rock": {
+  "file": "props/d_snow_rock.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_snow_crystal": {
+  "file": "props/d_snow_crystal.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_volcano_tree": {
+  "file": "props/d_volcano_tree.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_volcano_rock": {
+  "file": "props/d_volcano_rock.svg",
+  "w": 112,
+  "h": 128
+ },
+ "d_volcano_spike": {
+  "file": "props/d_volcano_spike.svg",
+  "w": 112,
+  "h": 128
+ }
+}

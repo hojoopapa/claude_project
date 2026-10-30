@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "build:single": "npm run build && node scripts/make-single.mjs",
     "sim":"echo dev 서버(--port 5199) 실행 후: node scripts/balance-sim.cjs . [스테이지,...]",
+    "gen:svg": "node scripts/gen-svg-skin.cjs",
+    "assets": "python3 scripts/process-assets.py",
     "check-levels": "node --experimental-strip-types scripts/check-levels.ts"
   },
   "dependencies": {
