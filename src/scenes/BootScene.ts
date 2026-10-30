@@ -5,7 +5,7 @@ type G = Phaser.GameObjects.Graphics;
 
 function tex(scene: Phaser.Scene, key: string, w: number, h: number, draw: (g: G) => void) {
   if (scene.textures.exists(key)) return; // 스킨 이미지가 이미 있으면 도형 텍스처를 만들지 않는다
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  const g = scene.make.graphics(new Phaser.Math.Vector2(0, 0), false);
   draw(g);
   g.generateTexture(key, w, h);
   g.destroy();
@@ -43,7 +43,60 @@ export class BootScene extends Phaser.Scene {
     this.load.start();
   }
 
+  /** UI 아이콘 (48x48, 화면에는 0.5배로 그린다). 스킨과 상관없이 코드로 그린다. */
+  private makeIcons() {
+    const pts = (cx: number, cy: number, R: number, r: number, n = 5) => {
+      const p: Phaser.Math.Vector2[] = [];
+      for (let i = 0; i < n * 2; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / n, rad = i % 2 ? r : R;
+        p.push(new Phaser.Math.Vector2(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad));
+      }
+      return p;
+    };
+    tex(this, 'ic_heart', 48, 48, (g) => {
+      g.fillStyle(0xff5a6c).fillCircle(16, 18, 11).fillCircle(32, 18, 11).fillTriangle(6, 23, 42, 23, 24, 43);
+      g.fillStyle(0xffffff, 0.35).fillCircle(13, 14, 4);
+    });
+    tex(this, 'ic_coin', 48, 48, (g) => {
+      g.fillStyle(0xf6b82e).fillCircle(24, 24, 19);
+      g.lineStyle(3, 0xd48a10, 1).strokeCircle(24, 24, 13);
+      g.fillStyle(0xffe27a).fillCircle(24, 24, 9);
+      g.fillStyle(0xffffff, 0.5).fillCircle(17, 16, 4);
+    });
+    tex(this, 'ic_star', 48, 48, (g) => { g.fillStyle(0xffcf3a).fillPoints(pts(24, 25, 21, 9), true); g.fillStyle(0xffffff, 0.35).fillCircle(18, 17, 3); });
+    tex(this, 'ic_star_off', 48, 48, (g) => { g.fillStyle(0x38425f).fillPoints(pts(24, 25, 21, 9), true); });
+    tex(this, 'ic_lock', 48, 48, (g) => {
+      g.lineStyle(5, 0x9aa7c4, 1).beginPath().arc(24, 22, 9, Math.PI, 0, false).strokePath();
+      g.fillStyle(0x9aa7c4).fillRoundedRect(10, 22, 28, 22, 5);
+      g.fillStyle(0x38425f).fillCircle(24, 32, 3.5);
+    });
+    tex(this, 'ic_play', 48, 48, (g) => { g.fillStyle(0xffffff).fillTriangle(14, 8, 14, 40, 40, 24); });
+    tex(this, 'ic_pause', 48, 48, (g) => { g.fillStyle(0xffffff).fillRoundedRect(11, 8, 10, 32, 3).fillRoundedRect(27, 8, 10, 32, 3); });
+    tex(this, 'ic_ff', 48, 48, (g) => { g.fillStyle(0xffffff).fillTriangle(6, 10, 6, 38, 24, 24).fillTriangle(24, 10, 24, 38, 42, 24); });
+    tex(this, 'ic_back', 48, 48, (g) => { g.lineStyle(6, 0xffffff, 1).beginPath().moveTo(30, 9).lineTo(14, 24).lineTo(30, 39).strokePath(); });
+    tex(this, 'ic_up', 48, 48, (g) => { g.fillStyle(0x7dffb0).fillTriangle(24, 5, 5, 26, 43, 26).fillRect(17, 26, 14, 16); });
+    tex(this, 'ic_fire', 48, 48, (g) => {
+      g.fillStyle(0xff7a1a).fillCircle(24, 31, 14).fillTriangle(10, 28, 38, 28, 24, 2);
+      g.fillStyle(0xffd24a).fillCircle(24, 34, 8).fillTriangle(16, 32, 32, 32, 24, 14);
+    });
+    tex(this, 'ic_reinf', 48, 48, (g) => {
+      g.fillStyle(0x4aa3ff).fillPoints([new Phaser.Math.Vector2(8, 7), new Phaser.Math.Vector2(40, 7), new Phaser.Math.Vector2(40, 26), new Phaser.Math.Vector2(24, 44), new Phaser.Math.Vector2(8, 26)], true);
+      g.fillStyle(0xa9d6ff).fillPoints([new Phaser.Math.Vector2(14, 13), new Phaser.Math.Vector2(34, 13), new Phaser.Math.Vector2(34, 24), new Phaser.Math.Vector2(24, 36), new Phaser.Math.Vector2(14, 24)], true);
+      g.fillStyle(0x2a68c0).fillRect(22, 15, 4, 18).fillRect(16, 21, 16, 4);
+    });
+    tex(this, 'ic_ad', 48, 48, (g) => {
+      g.fillStyle(0xffffff).fillRoundedRect(4, 10, 40, 28, 7);
+      g.fillStyle(0x7a5be0).fillTriangle(19, 17, 19, 31, 33, 24);
+    });
+    tex(this, 'ic_sell', 48, 48, (g) => {
+      g.fillStyle(0xf6b82e).fillCircle(24, 24, 19);
+      g.lineStyle(3, 0xd48a10, 1).strokeCircle(24, 24, 13);
+      g.fillStyle(0x8a5a00).fillRect(22, 12, 4, 24).fillRect(17, 16, 14, 4).fillRect(17, 28, 14, 4);
+    });
+  }
+
   private makeProceduralTextures() {
+    this.makeIcons();
     // --- 적 ---
     tex(this, 'e_goblin', 30, 30, (g) => {
       g.fillStyle(0x5da832).fillTriangle(2, 8, 10, 6, 8, 16).fillTriangle(28, 8, 20, 6, 22, 16);

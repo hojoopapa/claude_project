@@ -13,7 +13,7 @@
 """
 import argparse, json, pathlib, sys
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CENTER = {'e_wisp', 'e_bat', 'e_drake', 'spot', 'p_arrow', 'p_orb', 'p_ball'}
@@ -26,6 +26,8 @@ ERASE = {
 }
 # 차가운 색(청록/하늘색) 몸체: 붉은 성분이 초록보다 높지 않게 눌러 보라색 번짐을 파란색 쪽으로 보정한다.
 COOL = {'e_wisp', 'e_wraith'}
+# 질감 완화 강도 (중간값 필터 크기, 홀수). 클수록 단순하다.
+SIMPLIFY_MEDIAN = 7
 
 
 def clean_corner(im: Image.Image) -> Image.Image:
@@ -134,6 +136,7 @@ def main():
     ap.add_argument('--inbox', default=str(ROOT / 'assets-inbox'))
     ap.add_argument('--out', default=str(ROOT / 'public/skins/image'))
     ap.add_argument('--keep-corner', action='store_true')
+    ap.add_argument('--detail', action='store_true', help='질감 완화(단순화)를 끄고 원본 디테일을 그대로 쓴다')
     args = ap.parse_args()
     inbox, out = pathlib.Path(args.inbox), pathlib.Path(args.out)
     manifest = json.load(open(ROOT / 'docs/art/manifest.json', encoding='utf8'))
@@ -158,7 +161,11 @@ def main():
             else:
                 bottom = key not in CENTER
                 src = im if args.keep_corner else clean_corner(im)
-                keyed = key_magenta(erase_regions(src, key), cool=key in COOL)
+                src = erase_regions(src, key)
+                if not args.detail:
+                    # 돌 무늬, 털, 천 질감 같은 잔무늬를 줄여 작은 크기에서도 단순하게 보이게 한다 (윤곽선은 유지되는 중간값 필터)
+                    src = src.convert('RGB').filter(ImageFilter.MedianFilter(SIMPLIFY_MEDIAN))
+                keyed = key_magenta(src, cool=key in COOL)
                 if key in KEEP_LARGEST:
                     keyed = keep_largest(keyed)
                 res = fit(keyed, a['out_w'], a['out_h'], bottom)

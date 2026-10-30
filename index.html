@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Realm Guard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet" />
     <meta name="robots" content="noindex" />
     <style>
       html, body { margin: 0; height: 100%; background: #14121f; overflow: hidden; touch-action: none; }
@@ -11,14 +14,19 @@
       #game { flex: 1; min-height: 0; }
       #ad-banner {
         height: 90px; display: flex; align-items: center; justify-content: center;
-        color: #6b6785; font: 12px sans-serif; background: #0e0c17; border-top: 1px solid #2a2640;
+        color: #6b6785; font: 12px sans-serif; background: #0b1020; border-top: 1px solid #1c2440;
       }
       @media (max-width: 760px), (max-height: 600px) { #ad-banner { height: 50px; } }
       #ad-overlay {
         position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column;
-        background: rgba(0,0,0,.88); color: #fff; font: 16px sans-serif; z-index: 10; gap: 16px; text-align: center;
+        background: rgba(5,8,16,.93); color: #f2f5fb; font: 600 16px 'Noto Sans KR', system-ui, sans-serif;
+        z-index: 10; gap: 18px; text-align: center; padding: 16px;
       }
-      #ad-overlay button { font: 16px sans-serif; padding: 10px 24px; border-radius: 8px; border: 0; cursor: pointer; }
+      #ad-overlay div:nth-child(2) { font-size: 56px; font-weight: 700; color: #ffd36b; }
+      #ad-overlay button {
+        font: 700 16px 'Noto Sans KR', system-ui, sans-serif; padding: 12px 30px; border-radius: 14px; border: 0; cursor: pointer;
+        color: #fff; background: #2fb872; box-shadow: 0 4px 0 rgba(0,0,0,.35);
+      }
     </style>
   </head>
   <body>

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // SVG 스킨 생성기: public/skins/svg/ 아래에 SVG 50개와 index.json 을 만든다.
 // 사용법: node scripts/gen-svg-skin.cjs
+// 기본은 '단순' 스타일(그라데이션을 단색으로, 돌 무늬/기와선 같은 잔선 제거). 예전의 자세한 그림은 DETAIL=1 node scripts/gen-svg-skin.cjs
 // 그림을 고치려면 이 파일을 수정하고 다시 실행한다. 크기(out_w x out_h)는 docs/art/manifest.json 을 따르며,
 // 게임은 이 크기(표시 크기의 2배)로 SVG를 불러와 0.5배로 그린다. 모든 스프라이트는 오른쪽을 본다.
 const fs = require('fs');
@@ -12,6 +13,24 @@ const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/art/manifest.j
 const M = Object.fromEntries(manifest.assets.map((a) => [a.key, a]));
 
 const OUT = '#2b1b12';
+const SIMPLE = process.env.DETAIL !== '1';
+
+// 단순 모드에서 그라데이션 대신 쓰는 단색
+const FLAT = {
+  stone: '#bdb5a1', stoneB: '#aab5d1', stoneD: '#646376', wood: '#a8743f', roofG: '#52a047', roofR: '#cc4a3c', roofP: '#7d57cb',
+  steel: '#bcc5d0', gold: '#eab53a', blue: '#3b76cb', copper: '#cc8048', ice: '#92ddf5', iron: '#595964', lava: '#ffa030',
+  goblin: '#80c350', orc: '#4b8b31', wolf: '#8e96a3', ogre: '#8f5c38', rock: '#8c8c99', wisp: '#93e0ff', drake: '#c23a2c',
+  bat: '#6b4092', ghost: '#aae7df', orb: '#c59bf2', glowY: '#ffe14a', glowC: '#80e8ff',
+};
+/** 단순 모드: 그라데이션 -> 단색, 가는 잔선 그룹 제거 */
+function simplify(svgText) {
+  let t = svgText.replace(/url\(#([A-Za-z]+)\)/g, (m, id) => FLAT[id] || m);
+  t = t.replace(/<g stroke="#[0-9a-fA-F]+" stroke-width="(?:[0-9.]+)" fill="none"[^>]*>.*?<\/g>/g, (m) => {
+    const w = Number(/stroke-width="([0-9.]+)"/.exec(m)[1]);
+    return w <= 3.5 ? '' : m;
+  });
+  return t;
+}
 
 // ---------- 공통 그라데이션 ----------
 const lg = (id, cols, dir = 'd') => {
@@ -441,14 +460,18 @@ Object.assign(files, {
 });
 for (const [k, fn] of Object.entries(props)) files[k] = fn();
 
-fs.rmSync(OUTDIR, { recursive: true, force: true });
+// 폴더 자체는 지우지 않는다 (개발 서버가 폴더를 놓치지 않게). 예전 파일만 지운다.
+fs.mkdirSync(OUTDIR, { recursive: true });
+for (const d of fs.readdirSync(OUTDIR, { withFileTypes: true })) {
+  if (d.isDirectory()) for (const f of fs.readdirSync(path.join(OUTDIR, d.name))) fs.unlinkSync(path.join(OUTDIR, d.name, f));
+}
 const index = {};
 for (const [key, body] of Object.entries(files)) {
   const a = M[key];
   if (!a) throw new Error(`manifest 에 없는 key: ${key}`);
   const dir = path.join(OUTDIR, a.category);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${key}.svg`), body);
+  fs.writeFileSync(path.join(dir, `${key}.svg`), SIMPLE ? simplify(body) : body);
   index[key] = { file: `${a.category}/${key}.svg`, w: a.out_w, h: a.out_h };
 }
 fs.writeFileSync(path.join(OUTDIR, 'index.json'), JSON.stringify(index, null, 1));

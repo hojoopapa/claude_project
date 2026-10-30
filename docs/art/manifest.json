@@ -481,5 +481,6 @@
    "priority": 2,
    "subject": "Scenery prop for the volcano area: a sharp obsidian spike cluster. Single object, base resting on the ground, 3/4 view. Canvas: portrait."
   }
- ]
+ ],
+ "style_prefix_simple": "2D game asset for a casual fantasy tower-defense web game. Very simple flat-color vector illustration, like a mobile game icon: big bold shapes, thick dark-brown outlines, only 2 to 3 flat colors per material with at most one simple shadow tone, NO textures (no brick lines, no fur, no fabric folds, no scratches, no gradients, no glow effects, no particles), minimal details, a large readable silhouette that is still clear when shrunk to 60 pixels, cute slightly chunky proportions, 3/4 top-down camera. One single object, centered, fully visible with a margin on every side, nothing floating around it, no text, no watermark, no frame, no ground shadow. Background: perfectly flat solid magenta #FF00FF with no gradient, no floor and no props. Never use magenta or hot pink inside the subject. Original design; do not imitate the characters of any existing game."
 }
