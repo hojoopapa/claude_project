@@ -24,6 +24,18 @@ Same art style as the previous images in this chat. Flat solid magenta #FF00FF b
 
 우선순위: **P1** = 게임의 기본 모습이 바뀌는 핵심 (먼저), **P2** = 업그레이드 단계/배경, **P3** = 선택(효과/투사체).
 
+
+### 0-1. 단순한 스타일 (그림이 복잡해 보일 때 권장)
+처음 만든 스타일은 질감과 디테일이 많아서 작은 크기에서 복잡해 보일 수 있다. 더 단순한 그림이 필요하면 위 스타일 가이드 대신 아래를 **새 대화**에 붙여넣고, 에셋별 프롬프트는 그대로 쓴다. 같은 파일 이름으로 다시 올리면 기존 이미지를 덮어쓴다.
+
+```text
+Please create a consistent set of game images in a SIMPLE, FLAT style. Remember this style for every image I ask for in this chat:
+2D game asset for a casual fantasy tower-defense web game. Very simple flat-color vector illustration, like a mobile game icon: big bold shapes, thick dark-brown outlines, only 2 to 3 flat colors per material with at most one simple shadow tone, NO textures (no brick lines, no fur, no fabric folds, no scratches, no gradients, no glow effects, no particles), minimal details, a large readable silhouette that is still clear when shrunk to 60 pixels, cute slightly chunky proportions, 3/4 top-down camera. One single object, centered, fully visible with a margin on every side, nothing floating around it, no text, no watermark, no frame, no ground shadow. Background: perfectly flat solid magenta #FF00FF with no gradient, no floor and no props. Never use magenta or hot pink inside the subject. Original design; do not imitate the characters of any existing game.
+```
+
+- 결과가 아직 복잡하면 이렇게 덧붙인다: "Even simpler: remove all small details, use fewer colors, bigger shapes."
+- 단순하게 다시 만들 때 우선순위: 자주 보이는 것부터 (적 `e_goblin` `e_wolf` `e_orc` `e_bat` → 영웅·병사 → 타워 레벨 1 → 나머지).
+
 ## 타워와 건설 자리
 
 타워는 레벨 1로 먼저 스타일을 확정한 뒤, 레벨 2와 3은 **레벨 1 이미지를 첨부**하고 `Make the upgraded version of this exact tower.`를 덧붙인다.

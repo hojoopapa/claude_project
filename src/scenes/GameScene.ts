@@ -34,6 +34,9 @@ const PROPS: Record<Theme, string[]> = {
   volcano: ['tree', 'rock', 'spike'],
 };
 
+/** 맵 장식(나무, 바위 등) 개수. 많으면 복잡해 보인다 */
+const MAX_PROPS = 14;
+
 const FIRE_CD = 40, REINF_CD = 22, AD_GOLD = 150, AD_GOLD_CD = 90;
 
 export class GameScene extends Phaser.Scene implements World {
@@ -158,8 +161,8 @@ export class GameScene extends Phaser.Scene implements World {
     const g = this.add.graphics().setDepth(-10);
     g.fillStyle(th.ground).fillRect(0, 0, GAME_W, GAME_H);
     const rnd = mulberry32(this.level.id * 7919);
-    for (let i = 0; i < 60; i++) {
-      g.fillStyle(th.patch, 0.7).fillEllipse(rnd() * GAME_W, rnd() * GAME_H, 40 + rnd() * 90, 20 + rnd() * 50);
+    for (let i = 0; i < 22; i++) {
+      g.fillStyle(th.patch, 0.5).fillEllipse(rnd() * GAME_W, rnd() * GAME_H, 40 + rnd() * 90, 20 + rnd() * 50);
     }
     for (const p of this.paths) {
       if (p.air) {
@@ -184,7 +187,7 @@ export class GameScene extends Phaser.Scene implements World {
     }
     // 장식 (길/타워 자리에서 떨어진 곳에만)
     const ground = this.paths.filter((p) => !p.air);
-    for (let i = 0, placed = 0; i < 400 && placed < 34; i++) {
+    for (let i = 0, placed = 0; i < 400 && placed < MAX_PROPS; i++) {
       const v = { x: 20 + rnd() * (GAME_W - 40), y: 60 + rnd() * (GAME_H - 80) };
       if (ground.some((p) => p.nearest(v, 8).dist < 55)) continue;
       if (this.level.spots.some((s) => Math.hypot(s.x - v.x, s.y - v.y) < 50)) continue;
@@ -193,7 +196,7 @@ export class GameScene extends Phaser.Scene implements World {
       const kinds = PROPS[this.level.theme].filter((k) => hasSkinTexture(`d_${this.level.theme}_${k}`));
       if (kinds.length) {
         const k = kinds[Math.floor(rnd() * kinds.length)];
-        const sz = 0.3 + rnd() * 0.16;
+        const sz = 0.26 + rnd() * 0.12;
         this.add.image(v.x, v.y + 18, `d_${this.level.theme}_${k}`).setScale(sz).setOrigin(0.5, 0.92).setDepth(v.y);
         placed++;
         continue;
