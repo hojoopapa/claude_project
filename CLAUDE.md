@@ -34,6 +34,7 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 ```
 
 ## 구조
+- `src/ui.ts` — UI 키트. 팔레트(`C`), 외곽선 없는 `text()`, 둥근 `panel()`, 쿨다운/선택 상태가 있는 `button()`(컨테이너 기반, 아이콘 지원), 등장 애니메이션이 있는 `modal()`. 새 UI를 만들 때는 이걸 쓴다. 주의: Phaser 컨테이너의 히트 영역은 **좌상단 기준 좌표**다 (원형이면 `Circle(R, R, R)`). 아이콘 텍스처(`ic_*`)는 `BootScene.makeIcons()`가 48x48로 그리고 0.5배로 표시한다.
 - `src/skin.ts` — 스킨 선택·로드·폴백. 스킨 텍스처는 표시 크기의 2배로 만들어 0.5배로 그린다 (`texFor(키, 레벨)`이 키와 배율을 돌려준다. 새로 이미지를 그리는 코드는 `add.image`에 키를 직접 쓰지 말고 `texFor`를 쓴다).
 - `scripts/gen-svg-skin.cjs` — SVG 50개 생성기 (그림을 고치려면 여기를 수정하고 `npm run gen:svg`). 크기는 `docs/art/manifest.json`을 따른다.
 - `src/data/levels.ts` — 스테이지 정의. 1번만 손으로 쓴 웨이브이고, 나머지는 `make()`로 경로(직접 설계)만 주면 타워 자리(`autospots.ts`)와 웨이브(`wavegen.ts`)를 자동 생성한다. 스테이지별 난이도는 `power` 배율로 조정. 새 스테이지 이름은 `i18n.ts`의 `level.N`에 넣는다.

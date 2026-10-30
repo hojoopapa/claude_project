@@ -11,7 +11,7 @@ import { ads } from '../ads';
 import { hasSkinTexture, texFor } from '../skin';
 import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen } from '../save';
 import { DIFFICULTIES, Features, featuresFor, TUTORIAL_STAGES } from '../data/features';
-import { Btn, button, text } from '../ui';
+import { Btn, button, text, C, icon, panel, modal } from '../ui';
 
 interface Spot { pos: Vec; img: Phaser.GameObjects.Image; tower: Tower | null }
 interface Pending { t: number; kind: EnemyKind; path: number }
@@ -81,6 +81,8 @@ export class GameScene extends Phaser.Scene implements World {
   private strikes: { t: number; x: number; y: number }[] = [];
 
   private hud!: { gold: Phaser.GameObjects.Text; lives: Phaser.GameObjects.Text; wave: Phaser.GameObjects.Text; hint: Phaser.GameObjects.Text };
+  private hintBg!: Phaser.GameObjects.Graphics;
+  private waveBar!: Phaser.GameObjects.Graphics;
   private bars!: Phaser.GameObjects.Graphics;
   private menu: Phaser.GameObjects.GameObject[] = [];
   private buttons: { fire: Btn; reinf: Btn; ad: Btn; next: Btn; speed: Btn; pause: Btn } | null = null;
@@ -225,79 +227,94 @@ export class GameScene extends Phaser.Scene implements World {
 
   // ---------- HUD ----------
   private buildHud() {
-    const bar = this.add.rectangle(GAME_W / 2, 18, GAME_W, 36, 0x000000, 0.55).setDepth(900);
-    bar.setData('ui', true).setInteractive();
+    const g = this.add.graphics().setDepth(900);
+    // 위쪽: 생명 / 골드 / 웨이브 진행 / 속도·일시정지
+    panel(g, 10, 6, 100, 32, { r: 16, alpha: 0.85 });
+    panel(g, 118, 6, 124, 32, { r: 16, alpha: 0.85 });
+    panel(g, GAME_W / 2 - 110, 6, 220, 36, { r: 16, alpha: 0.85 });
+    icon(this, 'ic_heart', 30, 22).setDepth(901);
+    icon(this, 'ic_coin', 138, 22).setDepth(901);
+    this.waveBar = this.add.graphics().setDepth(902);
+    this.hintBg = this.add.graphics().setDepth(900);
     this.hud = {
-      lives: text(this, 70, 18, '', 20, '#ff8a8a').setDepth(901),
-      gold: text(this, 190, 18, '', 20, '#ffd34d').setDepth(901),
-      wave: text(this, GAME_W / 2, 18, '', 20, '#ffffff').setDepth(901),
-      hint: text(this, GAME_W / 2, 70, '', 22, '#ffffff').setDepth(901).setVisible(false),
+      lives: text(this, 72, 22, '', 17, C.text).setDepth(901),
+      gold: text(this, 194, 22, '', 17, C.gold).setDepth(901),
+      wave: text(this, GAME_W / 2, 20, '', 14, C.text).setDepth(901),
+      hint: text(this, GAME_W / 2, 74, '', 20, C.text).setDepth(902).setVisible(false),
     };
-    const d = (b: Btn) => { b.bg.setDepth(901); b.label.setDepth(902); return b; };
-    const y = GAME_H - 40, f = this.features;
+    const d = (b: Btn, depth = 901) => { b.bg.setDepth(depth); return b; };
+    const y = GAME_H - 44, f = this.features;
     // 열려 있는 스펠만 왼쪽부터 차례로 배치
-    const spellX = (k: Spell) => 48 + (['fire', 'reinf'] as Spell[]).filter((q) => f[q]).indexOf(k) * 86;
+    const spellX = (k: Spell) => 48 + (['fire', 'reinf'] as Spell[]).filter((q) => f[q]).indexOf(k) * 78;
+    const small = { radius: 10 };
     this.buttons = {
-      pause: d(button(this, GAME_W - 28, 18, 44, 28, 'II', () => this.togglePause(), 0x555566, 16)),
-      speed: d(button(this, GAME_W - 82, 18, 54, 28, 'x1', () => this.toggleSpeed(), 0x555566, 16)),
-      fire: d(button(this, spellX('fire'), y, 80, 56, t('fire'), () => this.pickSpell('fire'), 0xc0541f, 15)),
-      reinf: d(button(this, spellX('reinf'), y, 80, 56, t('reinf'), () => this.pickSpell('reinf'), 0x2f7bd0, 15)),
-      ad: d(button(this, 490, y, 140, 56, '', () => this.watchAdGold(), 0x8a5bd0, 14)),
-      next: d(button(this, GAME_W - 90, y, 150, 56, '', () => this.callNextWave(), 0x3b8f4a, 16)),
+      pause: d(button(this, GAME_W - 30, 22, 40, 32, '', () => this.togglePause(), C.slate, 14, { icon: 'ic_pause', iconScale: 0.7, ...small })),
+      speed: d(button(this, GAME_W - 76, 22, 40, 32, '', () => this.toggleSpeed(), C.slate, 14, { icon: 'ic_ff', iconScale: 0.7, ...small })),
+      fire: d(button(this, spellX('fire'), y, 66, 66, t('fire'), () => this.pickSpell('fire'), C.orange, 12, { icon: 'ic_fire', iconScale: 1.05, layout: 'top' })),
+      reinf: d(button(this, spellX('reinf'), y, 66, 66, t('reinf'), () => this.pickSpell('reinf'), C.blue, 12, { icon: 'ic_reinf', iconScale: 1.05, layout: 'top' })),
+      ad: d(button(this, 520, y, 150, 58, '', () => this.watchAdGold(), C.purple, 13, { icon: 'ic_coin', iconScale: 1.0 })),
+      next: d(button(this, GAME_W - 100, y, 170, 58, '', () => this.callNextWave(), C.green, 14, { icon: 'ic_play', iconScale: 0.8 })),
     };
     this.buttons.fire.setVisible(f.fire);
     this.buttons.reinf.setVisible(f.reinf);
     this.buttons.ad.setVisible(f.adGold);
-    const mkHero = (k: HeroKind, x: number) => ({
-      pick: d(button(this, x, y, 96, 56, '', () => this.pickHero(k), 0x8a5a2b, 14)),
-      skill: d(button(this, x, y - 44, 96, 26, t('skill.' + k), () => this.useAbility(k), 0x2f8f8f, 14)),
-    });
-    this.heroBtns = { knight: mkHero('knight', 240), sorc: mkHero('sorc', 344) };
-    (['knight', 'sorc'] as HeroKind[]).forEach((k) => {
+    const mkHero = (k: HeroKind, x: number) => {
       const hx = texFor(HEROES[k].tex);
-      const icon = this.add.image(this.heroBtns[k].pick.bg.x - 30, y, hx.key).setScale(0.8 * hx.scale).setDepth(903);
-      icon.setVisible(f.heroes);
-      if (!f.heroes) { this.heroBtns[k].pick.setVisible(false); this.heroBtns[k].skill.setVisible(false); }
-    });
+      return {
+        pick: d(button(this, x, y, 118, 58, '', () => this.pickHero(k), 0x6b4a2a, 12, { icon: hx.key, iconScale: hx.scale === 1 ? 1.5 : 0.85 })),
+        skill: d(button(this, x, y - 46, 118, 26, t('skill.' + k), () => this.useAbility(k), 0x258a8a, 12, { radius: 9 })),
+      };
+    };
+    this.heroBtns = { knight: mkHero('knight', 252), sorc: mkHero('sorc', 378) };
+    if (!f.heroes) for (const k of ['knight', 'sorc'] as HeroKind[]) { this.heroBtns[k].pick.setVisible(false); this.heroBtns[k].skill.setVisible(false); }
   }
 
   private updateHud() {
     const b = this.buttons!;
-    this.hud.lives.setText(t('lives', { n: this.lives }));
-    this.hud.gold.setText(t('gold', { n: Math.floor(this.gold) }));
+    this.hud.lives.setText(`${this.lives}`);
+    this.hud.gold.setText(`${Math.floor(this.gold)}`);
     const total = this.level.waves.length;
     this.hud.wave.setText(t('wave', { n: Math.max(0, this.waveIdx + 1), m: total }));
+    this.waveBar.clear()
+      .fillStyle(0xffffff, 0.12).fillRoundedRect(GAME_W / 2 - 90, 31, 180, 5, 2.5)
+      .fillStyle(C.goldHex, 1).fillRoundedRect(GAME_W / 2 - 90, 31, Math.max(5, 180 * (Math.max(0, this.waveIdx + 1) / total)), 5, 2.5);
     const f = this.features;
     for (const k of ['fire', 'reinf'] as Spell[]) {
       if (!f[k]) continue;
       const cd = this.spellCd[k];
-      const name = t(k);
-      b[k].setLabel(cd > 0 ? `${name}\n${Math.ceil(cd)}s` : this.spell === k ? `${name}\n${t('selected')}` : name);
+      b[k].setLabel(cd > 0 ? `${Math.ceil(cd)}s` : t(k));
+      b[k].setCooldown(cd / (k === 'fire' ? FIRE_CD : REINF_CD));
+      b[k].setSelected(this.spell === k);
       b[k].setEnabled(cd <= 0);
     }
     if (f.adGold) {
       const adWait = Math.ceil((this.adGoldReady - performance.now()) / 1000);
       b.ad.setLabel(adWait > 0 ? t('adWait', { s: adWait }) : t('adGold', { n: AD_GOLD }));
+      b.ad.setCooldown(adWait > 0 ? adWait / AD_GOLD_CD : 0);
       b.ad.setEnabled(adWait <= 0 && !this.adBusy);
     }
     for (const k of ['knight', 'sorc'] as HeroKind[]) {
       if (!f.heroes) break;
       const st = this.heroes[k], ui = this.heroBtns[k], name = t('hero.' + k);
       const on = this.unlocked.has(k);
+      const down = on && (!st.hero || st.hero.dead);
       if (!on) ui.pick.setLabel(`${name}\n[${t('adTag')}]`);
-      else if (!st.hero || st.hero.dead) ui.pick.setLabel(`${name}\n${Math.ceil(Math.max(0, st.respawn))}s`);
-      else ui.pick.setLabel(this.selHero === k ? `${name}\n${t('selected')}` : name);
-      ui.pick.label.setX(ui.pick.bg.x + 14).setWordWrapWidth(66).setAlign('center');
+      else if (down) ui.pick.setLabel(`${name}\n${Math.ceil(Math.max(0, st.respawn))}s`);
+      else ui.pick.setLabel(name);
+      ui.pick.setCooldown(down ? st.respawn / HEROES[k].respawn : 0);
+      ui.pick.setSelected(this.selHero === k);
       ui.skill.setVisible(on);
       const alive = !!st.hero && !st.hero.dead;
       ui.skill.setLabel(st.cd > 0 ? `${t('skill.' + k)} ${Math.ceil(st.cd)}s` : t('skill.' + k));
+      ui.skill.setCooldown(st.cd > 0 ? st.cd / HEROES[k].abilityCd : 0);
       ui.skill.setEnabled(alive && st.cd <= 0);
     }
     const canCall = this.waveIdx + 1 < total && !this.over;
     b.next.setVisible(canCall);
     if (canCall) {
       const left = Math.max(0, Math.ceil(this.nextWaveAt - this.clock));
-      b.next.setLabel(Number.isFinite(left) ? `${t('nextWave')}\n${left}s (+${this.earlyBonus()})` : t('nextWave'));
+      const nw = t('nextWave').replace(/\s*▶/, '');
+      b.next.setLabel(Number.isFinite(left) ? `${nw}\n${left}s (+${this.earlyBonus()})` : nw);
     }
   }
 
@@ -309,24 +326,33 @@ export class GameScene extends Phaser.Scene implements World {
   private togglePause() {
     if (this.over) return;
     this.paused = !this.paused;
-    this.buttons!.pause.setLabel(this.paused ? '▶' : 'II');
+    this.buttons!.pause.setIcon(this.paused ? 'ic_play' : 'ic_pause');
     if (this.paused) this.showBanner(t('paused'), t('pausedSub'), true);
-    else this.hud.hint.setVisible(false);
+    else this.hideBanner();
   }
 
   private toggleSpeed() {
     this.speed = this.speed === 1 ? 2 : 1;
-    this.buttons!.speed.setLabel(`x${this.speed}`);
+    this.buttons!.speed.setSelected(this.speed === 2);
   }
 
   private showBanner(title: string, sub: string, sticky = false) {
-    const t = this.hud.hint.setText(`${title}\n${sub}`).setVisible(true).setAlpha(1).setAlign('center');
-    this.tweens.killTweensOf(t);
-    if (!sticky) this.tweens.add({ targets: t, alpha: 0, delay: 2200, duration: 600 });
+    const h = this.hud.hint;
+    h.setText(sub ? `${title}\n${sub}` : title).setVisible(true).setAlpha(1).setAlign('center').setLineSpacing(4);
+    this.hintBg.clear().setVisible(true).setAlpha(1);
+    panel(this.hintBg, GAME_W / 2 - h.width / 2 - 22, h.y - h.height / 2 - 10, h.width + 44, h.height + 20, { r: 14, alpha: 0.82 });
+    this.tweens.killTweensOf([h, this.hintBg]);
+    if (!sticky) this.tweens.add({ targets: [h, this.hintBg], alpha: 0, delay: 2400, duration: 600 });
+  }
+
+  private hideBanner() {
+    this.tweens.killTweensOf([this.hud.hint, this.hintBg]);
+    this.hud.hint.setVisible(false);
+    this.hintBg.setVisible(false);
   }
 
   private floatText(x: number, y: number, s: string, color: string) {
-    const t = text(this, x, y, s, 16, color).setDepth(960);
+    const t = text(this, x, y, s, 16, color, { stroke: 4 }).setDepth(960);
     this.tweens.add({ targets: t, y: y - 26, alpha: 0, duration: 700, onComplete: () => t.destroy() });
   }
 
@@ -342,27 +368,37 @@ export class GameScene extends Phaser.Scene implements World {
   }
 
   private menuButton(x: number, y: number, tex: string | null, label: string, sub: string, enabled: boolean, cb: () => void,
-    opts: { tip?: string; subColor?: string } = {}) {
-    const bg = this.add.rectangle(x, y, 56, 56, enabled ? 0x2a3550 : 0x40363a, 0.95).setStrokeStyle(3, enabled ? 0xffe9a0 : 0x77666a)
-      .setDepth(1000).setInteractive({ useHandCursor: true });
-    bg.setData('ui', true);
-    bg.on('pointerdown', () => cb());
-    if (opts.tip !== undefined) {
-      bg.on('pointerover', () => this.tip?.setText(opts.tip!));
-      bg.on('pointerout', () => this.tip?.setText(''));
-    }
-    this.menu.push(bg);
-    if (tex) { const ix = texFor(tex, 0); this.menu.push(this.add.image(x, y - 5, ix.key).setScale(0.48 * ix.scale).setDepth(1001)); }
-    else this.menu.push(text(this, x, y - 6, label, 16).setDepth(1001));
-    this.menu.push(text(this, x, y + 21, sub, 13, opts.subColor ?? (enabled ? '#ffd34d' : '#aa8888')).setDepth(1002));
+    opts: { tip?: string; subColor?: string; icon?: string } = {}) {
+    const R = 30;
+    const c = this.add.container(x, y).setDepth(1000).setSize(R * 2, R * 2);
+    const g = this.add.graphics();
+    c.add(g);
+    const draw = (hover: boolean) => {
+      g.clear();
+      g.fillStyle(0x000000, 0.4).fillCircle(0, 3, R);
+      g.fillStyle(enabled ? (hover ? C.panelHi : C.panel) : 0x2a2430, 0.97).fillCircle(0, 0, R);
+      g.lineStyle(2, enabled ? (hover ? C.goldHex : 0xffffff) : 0x77666a, enabled ? (hover ? 1 : 0.3) : 0.5).strokeCircle(0, 0, R);
+    };
+    draw(false);
+    c.setInteractive(new Phaser.Geom.Circle(R, R, R), Phaser.Geom.Circle.Contains); // 컨테이너 히트 영역은 좌상단 기준 좌표
+    c.input!.cursor = 'pointer';
+    c.setData('ui', true);
+    c.on('pointerdown', () => cb());
+    c.on('pointerover', () => { draw(true); c.setScale(1.06); if (opts.tip !== undefined) this.tip?.setText(opts.tip); });
+    c.on('pointerout', () => { draw(false); c.setScale(1); if (opts.tip !== undefined) this.tip?.setText(''); });
+    if (tex) { const ix = texFor(tex, 0); c.add(this.add.image(0, -7, ix.key).setScale(0.44 * ix.scale)); }
+    else if (opts.icon) c.add(icon(this, opts.icon, 0, -7, 1.0));
+    else c.add(text(this, 0, -8, label, 15, enabled ? C.dim : '#775f66'));
+    if (sub) c.add(text(this, 0, 19, sub, 12, opts.subColor ?? (enabled ? C.gold : '#aa8888')));
+    this.menu.push(c);
   }
 
   private openBuildMenu(spot: Spot) {
     if (this.tutorial('build', () => this.openBuildMenu(spot))) return;
     this.closeMenu();
     const c = this.clampCenter(spot.pos.x, spot.pos.y);
-    this.menu.push(this.add.circle(c.x, c.y, 100, 0x000000, 0.25).setStrokeStyle(2, 0xffffff, 0.4).setDepth(999));
-    this.tip = text(this, c.x, c.y, '', 12, '#ffffff').setDepth(1003).setWordWrapWidth(84).setAlign('center');
+    this.menu.push(this.add.circle(c.x, c.y, 102, 0x050810, 0.3).setStrokeStyle(1.5, 0xffffff, 0.22).setDepth(999));
+    this.tip = text(this, c.x, c.y, '', 12, C.text, { stroke: 3 }).setDepth(1003).setWordWrapWidth(84).setAlign('center');
     this.menu.push(this.tip);
     const all: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon', 'frost', 'thunder'];
     const kinds = all.filter((k) => !TOWERS[k].adLock || this.features.adTowers);
@@ -377,7 +413,7 @@ export class GameScene extends Phaser.Scene implements World {
         locked || this.gold >= cost, () => {
           if (locked) void this.unlockWithAd(k, t('tower.' + k)).then((ok) => { if (ok && !this.over) this.buildTower(spot, k); });
           else if (this.gold >= cost) this.buildTower(spot, k);
-        }, { tip, subColor: locked ? '#d9a8ff' : undefined });
+        }, { tip, subColor: locked ? '#c9b3ff' : undefined });
     });
   }
 
@@ -392,21 +428,21 @@ export class GameScene extends Phaser.Scene implements World {
     this.closeMenu();
     const c = this.clampCenter(spot.pos.x, spot.pos.y);
     this.menu.push(this.add.circle(spot.pos.x, spot.pos.y, tw.lv.range, 0xffffff, 0.12).setStrokeStyle(2, 0xffffff, 0.5).setDepth(998));
-    this.menu.push(text(this, c.x, c.y - 100, `${t('tower.' + tw.kind)} Lv.${tw.level + 1}`, 16).setDepth(1002));
+    this.menu.push(text(this, c.x, c.y - 112, `${t('tower.' + tw.kind)} Lv.${tw.level + 1}`, 16, C.text, { stroke: 4 }).setDepth(1002));
     if (this.canUpgrade(tw)) {
-      this.menuButton(c.x, c.y - 62, null, '▲', `${tw.upgradeCost}`, this.gold >= tw.upgradeCost, () => {
+      this.menuButton(c.x, c.y - 66, null, '', `${tw.upgradeCost}`, this.gold >= tw.upgradeCost, () => {
         if (this.gold < tw.upgradeCost) return;
         this.gold -= tw.upgradeCost; tw.upgrade(); this.floatText(spot.pos.x, spot.pos.y - 50, t('levelUp'), '#9fe870'); this.closeMenu();
-      });
+      }, { icon: 'ic_up' });
     } else if (this.features.maxTowerLevel > 1) {
-      this.menuButton(c.x, c.y - 62, null, 'MAX', '', false, () => {});
+      this.menuButton(c.x, c.y - 66, null, 'MAX', '', false, () => {});
     }
-    this.menuButton(c.x, c.y + 62, null, '$', `+${tw.sellValue}`, true, () => {
+    this.menuButton(c.x, c.y + 66, null, '', `+${tw.sellValue}`, true, () => {
       this.gold += tw.sellValue; tw.destroy();
       this.towers.splice(this.towers.indexOf(tw), 1);
       spot.tower = null; spot.img.setVisible(true).setInteractive();
       this.closeMenu();
-    });
+    }, { icon: 'ic_sell' });
   }
 
   // ---------- 튜토리얼 설명창 ----------
@@ -419,17 +455,15 @@ export class GameScene extends Phaser.Scene implements World {
     this.modal = true;
     this.tutShown.add(key);
     markTutorialSeen(key);
-    const ui: Phaser.GameObjects.GameObject[] = [];
+    const m = modal(this, 660, 330, 3000);
+    const ui = m.objects;
     const close = () => { ui.forEach((o) => o.destroy()); this.modal = false; then(); };
-    const shade = this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.65).setDepth(3000).setInteractive();
-    shade.setData('ui', true);
-    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 620, 300, 0x20263a).setStrokeStyle(4, 0xffe9a0).setDepth(3001);
-    const title = text(this, GAME_W / 2, GAME_H / 2 - 112, t(`tut.${key}.title`), 26, '#ffe9a0').setDepth(3002);
-    const body = text(this, GAME_W / 2, GAME_H / 2 - 10, t(`tut.${key}.body`), 17, '#ffffff')
-      .setDepth(3002).setWordWrapWidth(560).setAlign('center').setLineSpacing(6);
-    const ok = button(this, GAME_W / 2, GAME_H / 2 + 112, 180, 46, t('ok'), close, 0x3b8f4a, 20);
-    ok.bg.setDepth(3002); ok.label.setDepth(3003);
-    ui.push(shade, panel, title, body, ok.bg, ok.label);
+    const title = text(this, m.cx, m.cy - 118, t(`tut.${key}.title`), 27, C.gold).setDepth(3002);
+    const body = text(this, m.cx, m.cy - 8, t(`tut.${key}.body`), 17, C.text, { weight: '500' })
+      .setDepth(3002).setWordWrapWidth(580).setAlign('center').setLineSpacing(8);
+    const ok = button(this, m.cx, m.cy + 118, 190, 48, t('ok'), close, C.green, 19);
+    ok.bg.setDepth(3002);
+    ui.push(title, body, ok.bg);
     return true;
   }
 
@@ -473,13 +507,13 @@ export class GameScene extends Phaser.Scene implements World {
     this.spell = null;
     this.selHero = this.selHero === k ? null : k;
     if (this.selHero) this.showBanner(t('heroMove', { name: t('hero.' + k) }), '', true);
-    else this.hud.hint.setVisible(false);
+    else this.hideBanner();
   }
 
   private moveHero(k: HeroKind, x: number, y: number) {
     const h = this.heroes[k].hero;
     this.selHero = null;
-    this.hud.hint.setVisible(false);
+    this.hideBanner();
     if (!h || h.dead || y < 44) return;
     h.home = { x, y };
     this.splashFx(x, y, 14, 0x9fe870);
@@ -535,12 +569,12 @@ export class GameScene extends Phaser.Scene implements World {
     this.closeMenu();
     this.spell = this.spell === s ? null : s;
     if (this.spell) this.showBanner(t(s), t('castHint'), true);
-    else this.hud.hint.setVisible(false);
+    else this.hideBanner();
   }
 
   private castSpell(s: Spell, x: number, y: number) {
     this.spell = null;
-    this.hud.hint.setVisible(false);
+    this.hideBanner();
     if (y < 40) return;
     if (s === 'fire') {
       this.spellCd.fire = FIRE_CD;
@@ -565,21 +599,21 @@ export class GameScene extends Phaser.Scene implements World {
   // ---------- 광고 ----------
   private confirmAd(title: string, sub: string): Promise<boolean> {
     return new Promise((resolve) => {
+      const m = modal(this, 520, 250, 3000, C.purple);
       const ui = this.dialog;
+      ui.push(...m.objects);
       const close = (v: boolean) => { ui.forEach((o) => o.destroy()); ui.length = 0; resolve(v); };
-      const shade = this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.6).setDepth(3000).setInteractive();
-      shade.setData('ui', true);
-      ui.push(shade,
-        this.add.rectangle(GAME_W / 2, GAME_H / 2, 440, 210, 0x20263a).setStrokeStyle(4, 0xd9a8ff).setDepth(3001),
-        text(this, GAME_W / 2, GAME_H / 2 - 55, title, 22).setDepth(3002).setWordWrapWidth(400).setAlign('center'),
-        text(this, GAME_W / 2, GAME_H / 2 - 5, sub, 16, '#cfd6e6').setDepth(3002).setWordWrapWidth(400).setAlign('center'));
+      ui.push(
+        icon(this, 'ic_ad', m.cx, m.cy - 78, 1.4).setDepth(3002),
+        text(this, m.cx, m.cy - 28, title, 22).setDepth(3002).setWordWrapWidth(470).setAlign('center'),
+        text(this, m.cx, m.cy + 16, sub, 15, C.dim, { weight: '500' }).setDepth(3002).setWordWrapWidth(470).setAlign('center'));
       const mk = (x: number, label: string, color: number, v: boolean) => {
-        const b = button(this, x, GAME_H / 2 + 60, 180, 48, label, () => close(v), color, 18);
-        b.bg.setDepth(3002); b.label.setDepth(3003);
-        ui.push(b.bg, b.label);
+        const b = button(this, x, m.cy + 82, 190, 48, label, () => close(v), color, 18);
+        b.bg.setDepth(3002);
+        ui.push(b.bg);
       };
-      mk(GAME_W / 2 - 100, t('watch'), 0x8a5bd0, true);
-      mk(GAME_W / 2 + 100, t('cancel'), 0x555566, false);
+      mk(m.cx - 102, t('watch'), C.purple, true);
+      mk(m.cx + 102, t('cancel'), C.slate, false);
     });
   }
 
@@ -635,26 +669,35 @@ export class GameScene extends Phaser.Scene implements World {
     this.closeMenu();
     const stars = win ? (this.lives >= this.maxLives * 0.9 ? 3 : this.lives >= this.maxLives * 0.5 ? 2 : 1) : 0;
     if (win) saveStars(this.level.id, stars);
+    const canNext = win && this.index + 1 < LEVELS.length;
+    const canRevive = !win && !this.revived;
+    const nBtn = (canNext || canRevive ? 1 : 0) + 2;
+    const H = (win ? 250 : 190) + nBtn * 56;
+    const m = modal(this, 480, H, 2000, win ? C.goldHex : C.danger);
     const ui = this.resultUi;
-    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => { ui.push(o); return o; };
-    const shade = add(this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.6).setDepth(2000).setInteractive());
-    shade.setData('ui', true);
-    add(this.add.rectangle(GAME_W / 2, GAME_H / 2, 420, 300, 0x20263a).setStrokeStyle(4, 0xffe9a0).setDepth(2001));
-    add(text(this, GAME_W / 2, GAME_H / 2 - 100, win ? t('victory') : t('defeat'), 44, win ? '#ffe9a0' : '#ff8a8a').setDepth(2002));
-    if (win) add(text(this, GAME_W / 2, GAME_H / 2 - 45, '★'.repeat(stars) + '☆'.repeat(3 - stars), 40, '#ffd34d').setDepth(2002));
-    const mk = (y: number, label: string, cb: () => void, color: number) => {
-      const b = button(this, GAME_W / 2, y, 280, 48, label, cb, color, 20);
-      b.bg.setDepth(2002); b.label.setDepth(2003);
-      ui.push(b.bg, b.label);
-    };
-    let y = GAME_H / 2 + 10;
+    ui.push(...m.objects);
+    const top = m.cy - H / 2;
+    ui.push(text(this, m.cx, top + 56, win ? t('victory') : t('defeat'), 44, win ? C.gold : C.red).setDepth(2002));
+    let y = top + 100;
     if (win) {
-      if (this.index + 1 < LEVELS.length) mk(y, t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), 0x3b8f4a), y += 56;
-    } else if (!this.revived) {
-      mk(y, t('revive'), () => this.reviveWithAd(), 0x8a5bd0), y += 56;
-    }
-    mk(y, t('retry'), () => this.scene.restart({ index: this.index }), 0x3b6fb6); y += 56;
-    mk(y, t('stageSelect'), () => this.scene.start('LevelSelect'), 0x555566);
+      for (let i = 0; i < 3; i++) {
+        const st = icon(this, i < stars ? 'ic_star' : 'ic_star_off', m.cx + (i - 1) * 64, y + 28, 1.7).setDepth(2002).setScale(0);
+        this.tweens.add({ targets: st, scale: 0.85, duration: 260, delay: 180 + i * 160, ease: 'Back.Out' });
+        ui.push(st);
+      }
+      y += 84;
+    } else y += 6;
+    y += 22;
+    const mk = (label: string, cb: () => void, color: number, ic?: string) => {
+      const b = button(this, m.cx, y, 380, 46, label, cb, color, 17, ic ? { icon: ic, iconScale: 0.9 } : {});
+      b.bg.setDepth(2002);
+      ui.push(b.bg);
+      y += 56;
+    };
+    if (canNext) mk(t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), C.green, 'ic_play');
+    else if (canRevive) mk(t('revive'), () => this.reviveWithAd(), C.purple, 'ic_ad');
+    mk(t('retry'), () => this.scene.restart({ index: this.index }), C.blue);
+    mk(t('stageSelect'), () => this.scene.start('LevelSelect'), C.slate);
   }
 
   // ---------- 메인 루프 ----------
@@ -712,17 +755,18 @@ export class GameScene extends Phaser.Scene implements World {
     const g = this.bars;
     g.clear();
     const bar = (x: number, y: number, w: number, frac: number, color: number) => {
-      g.fillStyle(0x000000, 0.7).fillRect(x - w / 2 - 1, y - 1, w + 2, 5);
-      g.fillStyle(color, 1).fillRect(x - w / 2, y, w * Math.max(0, frac), 3);
+      g.fillStyle(0x050810, 0.65).fillRoundedRect(x - w / 2 - 1, y - 1, w + 2, 6, 3);
+      g.fillStyle(color, 1).fillRoundedRect(x - w / 2, y, Math.max(3, w * Math.max(0, frac)), 4, 2);
     };
+    const hpColor = (f: number) => (f > 0.6 ? 0x4cd27a : f > 0.3 ? 0xffc83d : 0xff5a5a);
     for (const e of this.enemies) {
-      if (e.hp < e.maxHp) bar(e.x, e.y - (e.def.flying ? 44 : 26) - (e.def.tex === 'e_ogre' ? 16 : 0), e.def.tex === 'e_ogre' ? 44 : 26, e.hp / e.maxHp, 0xe74c3c);
+      if (e.hp < e.maxHp) bar(e.x, e.y - (e.def.flying ? 44 : 26) - (e.def.tex === 'e_ogre' ? 16 : 0), e.def.tex === 'e_ogre' ? 44 : 26, e.hp / e.maxHp, hpColor(e.hp / e.maxHp));
     }
     if (this.selHero) {
       const h = this.heroes[this.selHero].hero;
       if (h && !h.dead) g.lineStyle(2, 0x9fe870, 1).strokeEllipse(h.x, h.y + 12, 34, 16);
     }
-    for (const s of this.soldiers) if (s.hp < s.maxHp) bar(s.x, s.y - 18, 20, s.hp / s.maxHp, 0x4aa3ff);
+    for (const s of this.soldiers) if (s.hp < s.maxHp) bar(s.x, s.y - 18, 20, s.hp / s.maxHp, 0x5aa8ff);
     for (const t of this.towers) {
       for (let i = 0; i <= t.level; i++) g.fillStyle(0xffd34d, 1).fillCircle(t.pos.x - t.level * 5 + i * 10, t.pos.y + 18, 3);
     }
