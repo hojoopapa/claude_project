@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
+import { getSkin, markSkinTexture, mergeIndex, queueSkin, SkinIndex } from '../skin';
 
 type G = Phaser.GameObjects.Graphics;
 
 function tex(scene: Phaser.Scene, key: string, w: number, h: number, draw: (g: G) => void) {
+  if (scene.textures.exists(key)) return; // 스킨 이미지가 이미 있으면 도형 텍스처를 만들지 않는다
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   draw(g);
   g.generateTexture(key, w, h);
@@ -14,11 +16,34 @@ function circ(g: G, x: number, y: number, r: number, fill: number, stroke = 0x1b
   g.lineStyle(2, stroke, 1).strokeCircle(x, y, r);
 }
 
-/** 프로그래머 아트: 외부 이미지 없이 도형으로 모든 텍스처를 생성한다. */
+/**
+ * 먼저 선택한 스킨(svg / image)의 이미지를 불러오고, 이미지가 없는 키만 도형으로 만든 텍스처로 채운다.
+ * (그림 파일이 하나도 없어도 게임이 돌아가도록 하는 폴백이다)
+ */
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
+  preload() {
+    const base = import.meta.env.BASE_URL;
+    this.load.json('skin-svg', `${base}skins/svg/index.json`);
+    if (getSkin() === 'image') this.load.json('skin-image', `${base}skins/image/index.json`);
+  }
+
   create() {
+    const skin = getSkin();
+    const asIndex = (k: string) => (this.cache.json.exists(k) ? (this.cache.json.get(k) as SkinIndex) : undefined);
+    const merged = mergeIndex(skin, asIndex('skin-svg'), asIndex('skin-image'));
+    const finish = () => {
+      for (const k of Object.keys(merged)) if (this.textures.exists(k)) markSkinTexture(k);
+      this.makeProceduralTextures();
+      this.scene.start('Menu');
+    };
+    if (queueSkin(this.load, skin, merged) === 0) { finish(); return; }
+    this.load.once('complete', finish);
+    this.load.start();
+  }
+
+  private makeProceduralTextures() {
     // --- 적 ---
     tex(this, 'e_goblin', 30, 30, (g) => {
       g.fillStyle(0x5da832).fillTriangle(2, 8, 10, 6, 8, 16).fillTriangle(28, 8, 20, 6, 22, 16);
@@ -195,6 +220,5 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0x777777).fillCircle(6, 6, 2);
     });
 
-    this.scene.start('Menu');
   }
 }

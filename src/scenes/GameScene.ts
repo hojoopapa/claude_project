@@ -8,6 +8,7 @@ import { Enemy, Hero, Projectile, Soldier, Tower, World } from '../game/entities
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { ads } from '../ads';
+import { hasSkinTexture, texFor } from '../skin';
 import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen } from '../save';
 import { DIFFICULTIES, Features, featuresFor, TUTORIAL_STAGES } from '../data/features';
 import { Btn, button, text } from '../ui';
@@ -22,6 +23,15 @@ const THEMES: Record<Theme, { ground: number; patch: number; road: number; edge:
   swamp: { ground: 0x56653f, patch: 0x4a5a38, road: 0x8a7a55, edge: 0x4e4128, deco: 0x2c4a2e },
   snow: { ground: 0xdfe9f2, patch: 0xcfdcea, road: 0x9aa8b8, edge: 0x6b7888, deco: 0x2e5a45 },
   volcano: { ground: 0x4a3434, patch: 0x3d2a2a, road: 0x8a7468, edge: 0x2e2220, deco: 0x7a2a1a },
+};
+
+/** 테마별 소품 그림 종류 (d_<테마>_<종류>) */
+const PROPS: Record<Theme, string[]> = {
+  meadow: ['tree', 'bush', 'rock'],
+  desert: ['palm', 'cactus', 'rock'],
+  swamp: ['tree', 'mushroom', 'reeds'],
+  snow: ['pine', 'rock', 'crystal'],
+  volcano: ['tree', 'rock', 'spike'],
 };
 
 const FIRE_CD = 40, REINF_CD = 22, AD_GOLD = 150, AD_GOLD_CD = 90;
@@ -103,7 +113,8 @@ export class GameScene extends Phaser.Scene implements World {
     this.bars = this.add.graphics().setDepth(950);
 
     for (const pos of this.level.spots) {
-      const img = this.add.image(pos.x, pos.y + 4, 'spot').setDepth(1).setInteractive({ useHandCursor: true });
+      const st = texFor('spot');
+      const img = this.add.image(pos.x, pos.y + 4, st.key).setScale(st.scale).setDepth(1).setInteractive({ useHandCursor: true });
       const spot: Spot = { pos, img, tower: null };
       img.on('pointerdown', () => { if (!this.spell && !this.selHero && !this.over) this.openBuildMenu(spot); });
       this.spots.push(spot);
@@ -173,11 +184,20 @@ export class GameScene extends Phaser.Scene implements World {
     }
     // 장식 (길/타워 자리에서 떨어진 곳에만)
     const ground = this.paths.filter((p) => !p.air);
-    for (let i = 0, placed = 0; i < 400 && placed < 38; i++) {
+    for (let i = 0, placed = 0; i < 400 && placed < 34; i++) {
       const v = { x: 20 + rnd() * (GAME_W - 40), y: 60 + rnd() * (GAME_H - 80) };
       if (ground.some((p) => p.nearest(v, 8).dist < 55)) continue;
       if (this.level.spots.some((s) => Math.hypot(s.x - v.x, s.y - v.y) < 50)) continue;
       const s = 0.7 + rnd() * 0.7;
+      // 스킨에 이 테마의 소품 그림이 있으면 그림으로, 없으면 도형 나무로 그린다
+      const kinds = PROPS[this.level.theme].filter((k) => hasSkinTexture(`d_${this.level.theme}_${k}`));
+      if (kinds.length) {
+        const k = kinds[Math.floor(rnd() * kinds.length)];
+        const sz = 0.3 + rnd() * 0.16;
+        this.add.image(v.x, v.y + 18, `d_${this.level.theme}_${k}`).setScale(sz).setOrigin(0.5, 0.92).setDepth(v.y);
+        placed++;
+        continue;
+      }
       g.fillStyle(0x000000, 0.18).fillEllipse(v.x, v.y + 14 * s, 30 * s, 10 * s);
       g.fillStyle(0x5a3b22).fillRect(v.x - 3 * s, v.y, 6 * s, 14 * s);
       g.fillStyle(th.deco).fillCircle(v.x, v.y - 6 * s, 15 * s);
@@ -231,7 +251,8 @@ export class GameScene extends Phaser.Scene implements World {
     });
     this.heroBtns = { knight: mkHero('knight', 240), sorc: mkHero('sorc', 344) };
     (['knight', 'sorc'] as HeroKind[]).forEach((k) => {
-      const icon = this.add.image(this.heroBtns[k].pick.bg.x - 30, y, HEROES[k].tex).setScale(0.8).setDepth(903);
+      const hx = texFor(HEROES[k].tex);
+      const icon = this.add.image(this.heroBtns[k].pick.bg.x - 30, y, hx.key).setScale(0.8 * hx.scale).setDepth(903);
       icon.setVisible(f.heroes);
       if (!f.heroes) { this.heroBtns[k].pick.setVisible(false); this.heroBtns[k].skill.setVisible(false); }
     });
@@ -328,7 +349,7 @@ export class GameScene extends Phaser.Scene implements World {
       bg.on('pointerout', () => this.tip?.setText(''));
     }
     this.menu.push(bg);
-    if (tex) this.menu.push(this.add.image(x, y - 5, tex).setScale(0.48).setDepth(1001));
+    if (tex) { const ix = texFor(tex, 0); this.menu.push(this.add.image(x, y - 5, ix.key).setScale(0.48 * ix.scale).setDepth(1001)); }
     else this.menu.push(text(this, x, y - 6, label, 16).setDepth(1001));
     this.menu.push(text(this, x, y + 21, sub, 13, opts.subColor ?? (enabled ? '#ffd34d' : '#aa8888')).setDepth(1002));
   }

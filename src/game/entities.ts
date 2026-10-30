@@ -3,6 +3,7 @@ import { ENEMIES, EnemyDef, EnemyKind } from '../data/enemies';
 import { TOWERS, TowerKind, TowerLvl, SELL_RATIO } from '../data/towers';
 import { HEROES, HeroKind } from '../data/heroes';
 import { PathData, Vec } from './path';
+import { texFor } from '../skin';
 
 /** 엔티티가 게임 상태에 접근하는 창구 */
 export interface World {
@@ -41,7 +42,8 @@ export class Enemy {
     this.hp = this.maxHp = this.def.hp * w.hpMul;
     const p = path.at(0);
     this.x = p.x; this.y = p.y;
-    this.img = w.gs.add.image(p.x, p.y, this.def.tex).setScale(this.def.scale);
+    const tx = texFor(this.def.tex);
+    this.img = w.gs.add.image(p.x, p.y, tx.key).setScale(this.def.scale * tx.scale);
   }
 
   hurt(amount: number, magic: boolean) {
@@ -120,7 +122,8 @@ export class Soldier {
   ) {
     this.hp = this.maxHp = hp;
     this.x = home.x; this.y = home.y;
-    this.img = w.gs.add.image(this.x, this.y, tex);
+    const tx = texFor(tex);
+    this.img = w.gs.add.image(this.x, this.y, tx.key).setScale(tx.scale);
   }
 
   hurt(n: number) {
@@ -198,7 +201,8 @@ export class Projectile {
     } else {
       this.flight = Math.max(0.05, dist({ x, y }, target) / speed);
     }
-    this.img = w.gs.add.image(x, y, `p_${kind}`).setDepth(800);
+    const tx = texFor(`p_${kind}`);
+    this.img = w.gs.add.image(x, y, tx.key).setScale(tx.scale).setDepth(800);
     if (fx) this.img.setTint(fx.tint);
   }
 
@@ -249,7 +253,8 @@ export class Tower {
 
   constructor(private w: World, readonly kind: TowerKind, readonly pos: Vec, paths: PathData[]) {
     this.spent = TOWERS[kind].levels[0].cost;
-    this.img = w.gs.add.image(pos.x, pos.y + 6, TOWERS[kind].tex).setOrigin(0.5, 0.85).setDepth(pos.y);
+    const tx = texFor(TOWERS[kind].tex, 0);
+    this.img = w.gs.add.image(pos.x, pos.y + 6, tx.key).setScale(tx.scale).setOrigin(0.5, tx.scale === 1 ? 0.85 : 0.9).setDepth(pos.y);
     if (kind === 'barracks') {
       let best = { pt: pos, dist: Infinity };
       for (const p of paths) { const n = p.nearest(pos); if (n.dist < best.dist) best = n; }
@@ -266,6 +271,8 @@ export class Tower {
   upgrade() {
     this.spent += this.upgradeCost;
     this.level++;
+    const tx = texFor(TOWERS[this.kind].tex, this.level);
+    this.img.setTexture(tx.key).setScale(tx.scale);
     for (const sl of this.slots) {
       if (sl.s && !sl.s.dead) {
         sl.s.maxHp = this.lv.soldierHp!; sl.s.hp = sl.s.maxHp;

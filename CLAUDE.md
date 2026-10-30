@@ -5,7 +5,7 @@ Kingdom Rush 스타일 웹 타워 디펜스. 서버 없는 정적 웹게임이�
 ## 확정된 결정
 - 서버 없음. 정적 호스팅(Cloudflare Pages 등)에 `dist/`를 올린다. 진행 상황은 `localStorage`.
 - 스택: TypeScript + Phaser 3 + Vite.
-- 아트: 외부 에셋 없이 `src/scenes/BootScene.ts`에서 도형으로 텍스처 생성. 게임성이 검증되면 에셋 교체. Kingdom Rush의 캐릭터·에셋은 저작권상 그대로 쓰지 않는다.
+- 아트: **스킨 두 가지**(게임성 동일, 그림만 다름). `svg`(기본, Claude가 코드로 그린 벡터, `public/skins/svg`)와 `image`(Gemini/ChatGPT 등이 만든 PNG, `public/skins/image`). 선택은 메인 화면 버튼 / `?skin=` / localStorage. image 스킨에 없는 그림은 svg로, 거기도 없으면 `BootScene`의 도형 텍스처로 폴백한다. Kingdom Rush의 캐릭터·에셋은 저작권상 그대로 쓰지 않는다.
 - 스테이지는 최대 20개, 스테이지당 3~5분 이내 클리어, 템포는 다이나믹하게.
 - 광고: 보상형 중심 + 하단 배너. 영웅과 일부 타워는 "광고 시청 → 해당 스테이지 동안 해제" 방식.
 - 다국어: ko, en, ja, zh, es, pt. 문자열은 전부 `src/i18n.ts`에서 관리한다 (UI에 한국어를 직접 쓰지 말 것).
@@ -27,11 +27,15 @@ npm install
 npm run dev            # 개발 서버
 npm run build          # tsc 검사 + dist/ 생성
 npm run build:single   # dist/single.html (단일 파일 미리보기용)
+npm run gen:svg        # SVG 스킨 다시 생성 (scripts/gen-svg-skin.cjs)
+npm run assets         # assets-inbox 원본 → public/skins/image 변환
 npm run check-levels   # 타워 자리/경로 검증, 스테이지별 총 HP/골드/예상 시간
 node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막 인자는 난이도 (dev 서버 --port 5199 필요, playwright 필요)
 ```
 
 ## 구조
+- `src/skin.ts` — 스킨 선택·로드·폴백. 스킨 텍스처는 표시 크기의 2배로 만들어 0.5배로 그린다 (`texFor(키, 레벨)`이 키와 배율을 돌려준다. 새로 이미지를 그리는 코드는 `add.image`에 키를 직접 쓰지 말고 `texFor`를 쓴다).
+- `scripts/gen-svg-skin.cjs` — SVG 50개 생성기 (그림을 고치려면 여기를 수정하고 `npm run gen:svg`). 크기는 `docs/art/manifest.json`을 따른다.
 - `src/data/levels.ts` — 스테이지 정의. 1번만 손으로 쓴 웨이브이고, 나머지는 `make()`로 경로(직접 설계)만 주면 타워 자리(`autospots.ts`)와 웨이브(`wavegen.ts`)를 자동 생성한다. 스테이지별 난이도는 `power` 배율로 조정. 새 스테이지 이름은 `i18n.ts`의 `level.N`에 넣는다.
 - `src/data/wavegen.ts` — 웨이브 생성기. 난이도 곡선 상수는 맨 위의 `BASE0`, `BASE_STEP`, `WAVE_GROWTH`.
 - `src/data/autospots.ts` — 경로 옆에서 사거리 커버가 큰 타워 자리를 자동 선택.
@@ -55,7 +59,7 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 - `main`에 푸시되면 `.github/workflows/deploy.yml`이 GitHub Pages에 자동 배포한다 (공개 주소: https://hojoopapa.github.io/claude_project/). 저장소 Settings → Pages → Source가 "GitHub Actions"여야 한다. 공개 빌드는 테스트 광고를 5초(`VITE_AD_SECONDS`)로 줄이고 검색엔진 색인을 막는다(`noindex`). 실제 광고 SDK를 붙일 때 이 설정도 정리한다.
 
 ## 다음 작업 (2026-10-29 기준, 사용자 결정 순서)
-1. **그래픽 개선을 먼저 한다.** 사용자가 ChatGPT로 이미지를 만들어 `assets-inbox/`에 올리는 방식으로 정했다. 프롬프트는 `docs/art/prompts.md`, 에셋 목록은 `docs/art/manifest.json`, 순서는 `docs/art/README.md`. 이미지가 올라오면 `python3 scripts/process-assets.py`로 변환(마젠타 배경 제거·크기 맞춤)하고, `BootScene`이 `public/assets/index.json`의 이미지를 불러오도록 바꾼다 (이미지가 없는 키는 기존 도형 텍스처를 폴백으로 유지, 이미지는 표시 크기의 2배라 0.5배로 표시, 타워는 레벨별 이미지 교체, 맵은 `g_*`/`r_*` 타일과 `d_*` 소품 사용). 적·영웅은 오른쪽을 보는 이미지다.
+1. **그래픽**: SVG 스킨은 완성(타일 제외). 이미지 스킨은 사용자가 Gemini에서 만든 이미지를 `assets-inbox/`에 올리면 `npm run assets`로 변환해 적용한다 (프롬프트 `docs/art/prompts.md`, 순서 `docs/art/README.md`). 아직 게임에서 쓰지 않는 것: 배경 타일 `g_*`/`r_*` (맵 바닥·길은 코드로 그린다). 적·영웅은 오른쪽을 보는 이미지다.
 2. 광고는 그다음에 넣는다 (CrazyGames SDK 연동: `ads.ts` 교체, 일시정지/음소거 규격).
 3. 20개 스테이지를 사람이 플레이해 보고 `power` 조정 (현재는 봇 시뮬레이션만으로 맞춘 값이다. 봇은 영웅/냉기·번개탑을 쓰지 않는다).
 4. 모바일 터치 점검, 사운드 추가.
