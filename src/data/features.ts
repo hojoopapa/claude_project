@@ -4,25 +4,21 @@ export interface Features {
   maxTowerLevel: number;
   reinf: boolean;
   fire: boolean;
-  /** 영웅 (광고 해제) */
   heroes: boolean;
-  /** 광고 보고 골드 */
-  adGold: boolean;
-  /** 냉기탑/번개탑 (광고 해제) */
-  adTowers: boolean;
+  /** 냉기탑/번개탑 */
+  extraTowers: boolean;
 }
 
 export const TUTORIAL_STAGES = 4;
 
 export function featuresFor(stage: number): Features {
-  if (stage > TUTORIAL_STAGES) return { maxTowerLevel: 3, reinf: true, fire: true, heroes: true, adGold: true, adTowers: true };
+  if (stage > TUTORIAL_STAGES) return { maxTowerLevel: 3, reinf: true, fire: true, heroes: true, extraTowers: true };
   return {
     maxTowerLevel: stage === 1 ? 1 : 2,
     reinf: stage >= 3,
     fire: stage >= 4,
     heroes: false,
-    adGold: false,
-    adTowers: false,
+    extraTowers: false,
   };
 }
 

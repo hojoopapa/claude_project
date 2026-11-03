@@ -7,9 +7,11 @@ import { HEROES, HeroKind } from '../data/heroes';
 import { Enemy, Hero, Projectile, Soldier, Tower, World } from '../game/entities';
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
-import { ads } from '../ads';
 import { hasSkinTexture, texFor } from '../skin';
-import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen } from '../save';
+import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer, setPlayer } from '../save';
+import { calcScore, fmt } from '../score';
+import { cleanName, rankingEnabled, submitScore } from '../ranking';
+import { promptText } from '../domDialog';
 import { DIFFICULTIES, Features, featuresFor, TUTORIAL_STAGES } from '../data/features';
 import { Btn, button, text, C, icon, panel, modal } from '../ui';
 
@@ -37,7 +39,7 @@ const PROPS: Record<Theme, string[]> = {
 /** 맵 장식(나무, 바위 등) 개수. 많으면 복잡해 보인다 */
 const MAX_PROPS = 14;
 
-const FIRE_CD = 40, REINF_CD = 22, AD_GOLD = 150, AD_GOLD_CD = 90;
+const FIRE_CD = 40, REINF_CD = 22;
 
 export class GameScene extends Phaser.Scene implements World {
   enemies: Enemy[] = [];
@@ -59,22 +61,17 @@ export class GameScene extends Phaser.Scene implements World {
   private speed = 1;
   private paused = false;
   private over = false;
-  private revived = false;
-  private adBusy = false;
-  private adGoldReady = 0;
   private features!: Features;
   hpMul = 1;
   private modal = false;
   private tutShown = new Set<string>();
 
-  private unlocked = new Set<string>();
   private heroes: Record<HeroKind, { hero: Hero | null; respawn: number; cd: number }> = {
     knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 },
   };
   private selHero: HeroKind | null = null;
   private heroBtns!: Record<HeroKind, { pick: Btn; skill: Btn }>;
   private tip: Phaser.GameObjects.Text | null = null;
-  private dialog: Phaser.GameObjects.GameObject[] = [];
 
   private spell: Spell | null = null;
   private spellCd: Record<Spell, number> = { fire: 0, reinf: 0 };
@@ -85,7 +82,7 @@ export class GameScene extends Phaser.Scene implements World {
   private waveBar!: Phaser.GameObjects.Graphics;
   private bars!: Phaser.GameObjects.Graphics;
   private menu: Phaser.GameObjects.GameObject[] = [];
-  private buttons: { fire: Btn; reinf: Btn; ad: Btn; next: Btn; speed: Btn; pause: Btn } | null = null;
+  private buttons: { fire: Btn; reinf: Btn; next: Btn; speed: Btn; pause: Btn } | null = null;
   private resultUi: Phaser.GameObjects.GameObject[] = [];
 
   constructor() { super('Game'); }
@@ -97,11 +94,10 @@ export class GameScene extends Phaser.Scene implements World {
     this.enemies = []; this.soldiers = []; this.projs = []; this.towers = []; this.spots = [];
     this.pending = []; this.menu = []; this.resultUi = []; this.strikes = [];
     this.waveIdx = -1; this.clock = 0; this.speed = 1; this.paused = false; this.over = false;
-    this.revived = false; this.adBusy = false; this.adGoldReady = 0; this.spell = null;
+    this.spell = null;
     this.spellCd = { fire: 0, reinf: 0 };
-    this.unlocked = new Set();
     this.heroes = { knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 } };
-    this.selHero = null; this.tip = null; this.dialog = []; this.modal = false; this.tutShown = new Set();
+    this.selHero = null; this.tip = null; this.modal = false; this.tutShown = new Set();
   }
 
   create() {
@@ -175,6 +171,9 @@ export class GameScene extends Phaser.Scene implements World {
         }
         continue;
       }
+      g.lineStyle(60, 0x000000, 0.1).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
+      p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
+      g.strokePath();
       g.lineStyle(52, th.edge, 1).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
       p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
       g.strokePath();
@@ -186,6 +185,20 @@ export class GameScene extends Phaser.Scene implements World {
       p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
       g.strokePath();
       p.pts.forEach((q) => g.fillStyle(th.road).fillCircle(q.x, q.y, 21));
+    }
+    // 길 가운데 은은한 밝은 띠와 자갈
+    const light = Phaser.Display.Color.ValueToColor(th.road).lighten(12).color;
+    for (const p of this.paths) {
+      if (p.air) continue;
+      g.lineStyle(20, light, 0.3).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
+      p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
+      g.strokePath();
+      p.pts.forEach((q) => g.fillStyle(light, 0.3).fillCircle(q.x, q.y, 10));
+      for (let d = 14; d < p.total; d += 26 + rnd() * 26) {
+        const a0 = p.at(d), a1 = p.at(d + 2), nx = -(a1.y - a0.y), ny = a1.x - a0.x, nl = Math.hypot(nx, ny) || 1;
+        const off = (rnd() - 0.5) * 30;
+        g.fillStyle(th.edge, 0.28).fillEllipse(a0.x + (nx / nl) * off, a0.y + (ny / nl) * off, 4 + rnd() * 4, 3 + rnd() * 2);
+      }
     }
     // 장식 (길/타워 자리에서 떨어진 곳에만)
     const ground = this.paths.filter((p) => !p.air);
@@ -209,6 +222,13 @@ export class GameScene extends Phaser.Scene implements World {
       g.fillStyle(0xffffff, 0.12).fillCircle(v.x - 4 * s, v.y - 10 * s, 7 * s);
       placed++;
     }
+    // 화면 가장자리를 은은하게 어둡게 해서 가운데(길과 타워)에 시선이 모이게 한다
+    const vg = this.add.graphics().setDepth(3);
+    const edge = 0x050810;
+    vg.fillGradientStyle(edge, edge, edge, edge, 0.34, 0.34, 0, 0).fillRect(0, 0, GAME_W, 90);
+    vg.fillGradientStyle(edge, edge, edge, edge, 0, 0, 0.38, 0.38).fillRect(0, GAME_H - 110, GAME_W, 110);
+    vg.fillGradientStyle(edge, edge, edge, edge, 0.3, 0, 0.3, 0).fillRect(0, 0, 80, GAME_H);
+    vg.fillGradientStyle(edge, edge, edge, edge, 0, 0.3, 0, 0.3).fillRect(GAME_W - 80, 0, 80, GAME_H);
     // 입구/출구 표시: 경로 방향을 따라 회전한 화살표
     const arrow = (at: Vec, dir: Vec, color: number) => {
       const a = Math.atan2(dir.y, dir.x), c = Math.cos(a), sn = Math.sin(a);
@@ -252,12 +272,10 @@ export class GameScene extends Phaser.Scene implements World {
       speed: d(button(this, GAME_W - 76, 22, 40, 32, '', () => this.toggleSpeed(), C.slate, 14, { icon: 'ic_ff', iconScale: 0.7, ...small })),
       fire: d(button(this, spellX('fire'), y, 66, 66, t('fire'), () => this.pickSpell('fire'), C.orange, 12, { icon: 'ic_fire', iconScale: 1.05, layout: 'top' })),
       reinf: d(button(this, spellX('reinf'), y, 66, 66, t('reinf'), () => this.pickSpell('reinf'), C.blue, 12, { icon: 'ic_reinf', iconScale: 1.05, layout: 'top' })),
-      ad: d(button(this, 520, y, 150, 58, '', () => this.watchAdGold(), C.purple, 13, { icon: 'ic_coin', iconScale: 1.0 })),
       next: d(button(this, GAME_W - 100, y, 170, 58, '', () => this.callNextWave(), C.green, 14, { icon: 'ic_play', iconScale: 0.8 })),
     };
     this.buttons.fire.setVisible(f.fire);
     this.buttons.reinf.setVisible(f.reinf);
-    this.buttons.ad.setVisible(f.adGold);
     const mkHero = (k: HeroKind, x: number) => {
       const hx = texFor(HEROES[k].tex);
       return {
@@ -287,23 +305,15 @@ export class GameScene extends Phaser.Scene implements World {
       b[k].setSelected(this.spell === k);
       b[k].setEnabled(cd <= 0);
     }
-    if (f.adGold) {
-      const adWait = Math.ceil((this.adGoldReady - performance.now()) / 1000);
-      b.ad.setLabel(adWait > 0 ? t('adWait', { s: adWait }) : t('adGold', { n: AD_GOLD }));
-      b.ad.setCooldown(adWait > 0 ? adWait / AD_GOLD_CD : 0);
-      b.ad.setEnabled(adWait <= 0 && !this.adBusy);
-    }
     for (const k of ['knight', 'sorc'] as HeroKind[]) {
       if (!f.heroes) break;
       const st = this.heroes[k], ui = this.heroBtns[k], name = t('hero.' + k);
-      const on = this.unlocked.has(k);
-      const down = on && (!st.hero || st.hero.dead);
-      if (!on) ui.pick.setLabel(`${name}\n[${t('adTag')}]`);
-      else if (down) ui.pick.setLabel(`${name}\n${Math.ceil(Math.max(0, st.respawn))}s`);
+      const down = !st.hero || st.hero.dead;
+      if (down) ui.pick.setLabel(`${name}\n${Math.ceil(Math.max(0, st.respawn))}s`);
       else ui.pick.setLabel(name);
       ui.pick.setCooldown(down ? st.respawn / HEROES[k].respawn : 0);
       ui.pick.setSelected(this.selHero === k);
-      ui.skill.setVisible(on);
+      ui.skill.setVisible(true);
       const alive = !!st.hero && !st.hero.dead;
       ui.skill.setLabel(st.cd > 0 ? `${t('skill.' + k)} ${Math.ceil(st.cd)}s` : t('skill.' + k));
       ui.skill.setCooldown(st.cd > 0 ? st.cd / HEROES[k].abilityCd : 0);
@@ -401,19 +411,16 @@ export class GameScene extends Phaser.Scene implements World {
     this.tip = text(this, c.x, c.y, '', 12, C.text, { stroke: 3 }).setDepth(1003).setWordWrapWidth(84).setAlign('center');
     this.menu.push(this.tip);
     const all: TowerKind[] = ['archer', 'barracks', 'mage', 'cannon', 'frost', 'thunder'];
-    const kinds = all.filter((k) => !TOWERS[k].adLock || this.features.adTowers);
+    const kinds = all.filter((k) => !TOWERS[k].extra || this.features.extraTowers);
     const offs = kinds.length > 4
       ? [[0, -70], [61, -35], [61, 35], [0, 70], [-61, 35], [-61, -35]]
       : [[0, -66], [66, 0], [0, 66], [-66, 0]];
     kinds.forEach((k, i) => {
       const def = TOWERS[k], cost = def.levels[0].cost;
-      const locked = !!def.adLock && !this.unlocked.has(k);
       const tip = `${t('tower.' + k)}\n${t('desc.' + k)}`;
-      this.menuButton(c.x + offs[i][0], c.y + offs[i][1], def.tex, '', locked ? `[${t('adTag')}]` : `${cost}`,
-        locked || this.gold >= cost, () => {
-          if (locked) void this.unlockWithAd(k, t('tower.' + k)).then((ok) => { if (ok && !this.over) this.buildTower(spot, k); });
-          else if (this.gold >= cost) this.buildTower(spot, k);
-        }, { tip, subColor: locked ? '#c9b3ff' : undefined });
+      this.menuButton(c.x + offs[i][0], c.y + offs[i][1], def.tex, '', `${cost}`, this.gold >= cost, () => {
+        if (this.gold >= cost) this.buildTower(spot, k);
+      }, { tip });
     });
   }
 
@@ -494,14 +501,9 @@ export class GameScene extends Phaser.Scene implements World {
     this.splashFx(h.x, h.y, 30, 0xffe9a0);
   }
 
-  private async pickHero(k: HeroKind) {
-    if (!this.features.heroes || this.over || this.adBusy) return;
+  private pickHero(k: HeroKind) {
+    if (!this.features.heroes || this.over) return;
     this.closeMenu();
-    if (!this.unlocked.has(k)) {
-      const ok = await this.unlockWithAd(k, t('hero.' + k));
-      if (ok && !this.over) this.spawnHero(k);
-      return;
-    }
     const h = this.heroes[k].hero;
     if (!h || h.dead) return;
     this.spell = null;
@@ -596,106 +598,90 @@ export class GameScene extends Phaser.Scene implements World {
     }
   }
 
-  // ---------- 광고 ----------
-  private confirmAd(title: string, sub: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      const m = modal(this, 520, 250, 3000, C.purple);
-      const ui = this.dialog;
-      ui.push(...m.objects);
-      const close = (v: boolean) => { ui.forEach((o) => o.destroy()); ui.length = 0; resolve(v); };
-      ui.push(
-        icon(this, 'ic_ad', m.cx, m.cy - 78, 1.4).setDepth(3002),
-        text(this, m.cx, m.cy - 28, title, 22).setDepth(3002).setWordWrapWidth(470).setAlign('center'),
-        text(this, m.cx, m.cy + 16, sub, 15, C.dim, { weight: '500' }).setDepth(3002).setWordWrapWidth(470).setAlign('center'));
-      const mk = (x: number, label: string, color: number, v: boolean) => {
-        const b = button(this, x, m.cy + 82, 190, 48, label, () => close(v), color, 18);
-        b.bg.setDepth(3002);
-        ui.push(b.bg);
-      };
-      mk(m.cx - 102, t('watch'), C.purple, true);
-      mk(m.cx + 102, t('cancel'), C.slate, false);
-    });
-  }
-
-  /** 확인 → 보상형 광고 시청 → 이번 스테이지 동안 잠금 해제 */
-  private async unlockWithAd(key: string, name: string): Promise<boolean> {
-    if (this.adBusy || this.over) return false;
-    this.adBusy = true;
-    let ok = false;
-    try {
-      if (await this.confirmAd(t('adUnlockTitle', { name }), t('adUnlockSub'))) {
-        ok = await ads.showRewarded(t('reasonUnlock', { name }));
-      }
-    } finally {
-      this.adBusy = false;
-    }
-    if (ok) this.unlocked.add(key);
-    return ok;
-  }
-
-  private async watchAdGold() {
-    if (!this.features.adGold || this.adBusy || this.over) return;
-    this.adBusy = true;
-    let ok = false;
-    try { ok = await ads.showRewarded(t('reasonGold', { n: AD_GOLD })); } finally { this.adBusy = false; }
-    if (ok) {
-      this.gold += AD_GOLD;
-      this.floatText(490, GAME_H - 90, `+${AD_GOLD}`, '#ffd34d');
-      this.adGoldReady = performance.now() + AD_GOLD_CD * 1000;
-    }
-  }
-
-  private async reviveWithAd() {
-    if (this.adBusy) return;
-    this.adBusy = true;
-    let ok = false;
-    try { ok = await ads.showRewarded(t('reasonRevive')); } finally { this.adBusy = false; }
-    if (!ok) return;
-    this.revived = true;
-    this.lives = 10;
-    this.over = false;
-    this.clearResult();
-  }
-
   // ---------- 결과 ----------
-  private clearResult() {
-    this.resultUi.forEach((o) => o.destroy());
-    this.resultUi = [];
-  }
-
   private finish(win: boolean) {
     this.over = true;
     this.spell = null;
     this.closeMenu();
     const stars = win ? (this.lives >= this.maxLives * 0.9 ? 3 : this.lives >= this.maxLives * 0.5 ? 2 : 1) : 0;
     if (win) saveStars(this.level.id, stars);
+    const diff = getDifficulty();
+    const sc = win ? calcScore(this.level, this.lives, this.clock, diff) : null;
+    const record = sc ? saveBestScore(this.level.id, sc.total, diff) : false;
     const canNext = win && this.index + 1 < LEVELS.length;
-    const canRevive = !win && !this.revived;
-    const nBtn = (canNext || canRevive ? 1 : 0) + 2;
-    const H = (win ? 250 : 190) + nBtn * 56;
-    const m = modal(this, 480, H, 2000, win ? C.goldHex : C.danger);
+
+    const W = 780, H = 370;
+    const m = modal(this, W, H, 2000, win ? C.goldHex : C.danger);
     const ui = this.resultUi;
     ui.push(...m.objects);
-    const top = m.cy - H / 2;
-    ui.push(text(this, m.cx, top + 56, win ? t('victory') : t('defeat'), 44, win ? C.gold : C.red).setDepth(2002));
-    let y = top + 100;
-    if (win) {
+    const top = m.cy - H / 2, lx = m.cx - 205, rx = m.cx + 195;
+    m.g.lineStyle(1, 0xffffff, 0.1).lineBetween(m.cx - 5, top + 34, m.cx - 5, top + H - 34);
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => { ui.push(o); return o; };
+
+    // ----- 왼쪽: 결과와 점수 -----
+    add(text(this, lx, top + (win ? 50 : 150), win ? t('victory') : t('defeat'), 40, win ? C.gold : C.red).setDepth(2002));
+    if (sc) {
       for (let i = 0; i < 3; i++) {
-        const st = icon(this, i < stars ? 'ic_star' : 'ic_star_off', m.cx + (i - 1) * 64, y + 28, 1.7).setDepth(2002).setScale(0);
-        this.tweens.add({ targets: st, scale: 0.85, duration: 260, delay: 180 + i * 160, ease: 'Back.Out' });
-        ui.push(st);
+        const st = icon(this, i < stars ? 'ic_star' : 'ic_star_off', lx + (i - 1) * 58, top + 104, 1.45).setDepth(2002).setScale(0);
+        this.tweens.add({ targets: st, scale: 0.72, duration: 260, delay: 150 + i * 150, ease: 'Back.Out' });
+        add(st);
       }
-      y += 84;
-    } else y += 6;
-    y += 22;
+      add(text(this, lx, top + 150, t('score'), 13, C.dim, { weight: '500' }).setDepth(2002));
+      const val = add(text(this, lx, top + 184, '0', 42, C.gold, { weight: '700' }).setDepth(2002)) as Phaser.GameObjects.Text;
+      this.tweens.addCounter({ from: 0, to: sc.total, duration: 800, delay: 300, onUpdate: (tw) => val.setText(fmt(tw.getValue() ?? 0)) });
+      const best = getBestScore(this.level.id);
+      if (record) {
+        const nr = add(text(this, lx, top + 216, t('newRecord'), 15, '#7dffb0', { weight: '700' }).setDepth(2002).setScale(0)) as Phaser.GameObjects.Text;
+        this.tweens.add({ targets: nr, scale: 1, duration: 300, delay: 1000, ease: 'Back.Out' });
+      } else if (best) add(text(this, lx, top + 216, t('bestScore', { n: fmt(best.score) }), 14, C.dim, { weight: '500' }).setDepth(2002));
+      const rows: [string, string][] = [
+        [t('scoreClear'), `+${fmt(sc.base)}`],
+        [t('scoreLives', { n: this.lives }), `+${fmt(sc.lives)}`],
+        [t('scoreTime'), `+${fmt(sc.time)}`],
+        [t('scoreDiff', { m: sc.mult }), ''],
+      ];
+      rows.forEach(([a, b], i) => {
+        const y = top + 246 + i * 21;
+        add(text(this, lx - 140, y, a, 13, C.dim, { weight: '500' }).setOrigin(0, 0.5).setDepth(2002));
+        add(text(this, lx + 140, y, b, 13, C.text, { weight: '600' }).setOrigin(1, 0.5).setDepth(2002));
+      });
+    }
+
+    // ----- 오른쪽: 버튼 -----
+    let y = top + (win ? 56 : 120);
     const mk = (label: string, cb: () => void, color: number, ic?: string) => {
-      const b = button(this, m.cx, y, 380, 46, label, cb, color, 17, ic ? { icon: ic, iconScale: 0.9 } : {});
+      const b = button(this, rx, y, 320, 44, label, cb, color, 17, ic ? { icon: ic, iconScale: 0.8 } : {});
       b.bg.setDepth(2002);
       ui.push(b.bg);
-      y += 56;
+      y += 54;
+      return b;
     };
     if (canNext) mk(t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), C.green, 'ic_play');
-    else if (canRevive) mk(t('revive'), () => this.reviveWithAd(), C.purple, 'ic_ad');
+    if (sc && rankingEnabled()) {
+      let busy = false;
+      const sb = mk(t('rankSubmit'), async () => {
+        if (busy) return;
+        busy = true;
+        try {
+          if (!cleanName(getPlayer().name)) {
+            const v = await promptText({ title: t('nickname'), hint: t('nameHint'), value: '', maxLen: 12, ok: t('ok'), cancel: t('cancel'), filter: cleanName });
+            if (!v) { busy = false; return; }
+            setPlayer({ name: v });
+          }
+          const bs = getBestScore(this.level.id) ?? { score: sc.total, diff };
+          await submitScore(this.level.id, bs.score, bs.diff);
+          sb.setLabel(t('rankDone')); sb.setEnabled(false);
+        } catch { sb.setLabel(t('rankFail')); busy = false; }
+      }, C.orange, 'ic_trophy');
+    }
+    if (sc) {
+      const share = `${t('title')} · ${t('stageN', { n: this.level.id })} ${t('level.' + this.level.id)}: ${fmt(sc.total)} (${t('diff.' + diff)}) ${'★'.repeat(stars)}\n${location.origin}${location.pathname}`;
+      const cb = mk(t('copyResult'), async () => {
+        try { await navigator.clipboard.writeText(share); cb.setLabel(t('copied')); } catch {
+          await promptText({ title: t('copyResult'), value: share, maxLen: 300, ok: t('ok'), cancel: t('cancel') });
+        }
+      }, C.slate);
+    }
     mk(t('retry'), () => this.scene.restart({ index: this.index }), C.blue);
     mk(t('stageSelect'), () => this.scene.start('LevelSelect'), C.slate);
   }
@@ -704,7 +690,7 @@ export class GameScene extends Phaser.Scene implements World {
   update(_time: number, delta: number) {
     this.updateHud();
     this.drawBars();
-    if (this.paused || this.over || this.adBusy || this.modal) return;
+    if (this.paused || this.over || this.modal) return;
     this.step(Math.min(delta, 50) / 1000 * this.speed);
   }
 
@@ -724,7 +710,7 @@ export class GameScene extends Phaser.Scene implements World {
     for (const k of ['knight', 'sorc'] as HeroKind[]) {
       const st = this.heroes[k];
       st.cd = Math.max(0, st.cd - dt);
-      if (!this.unlocked.has(k)) continue;
+      if (!this.features.heroes) continue;
       if (st.hero?.dead) { st.hero = null; st.respawn = HEROES[k].respawn; if (this.selHero === k) this.selHero = null; }
       else if (!st.hero && (st.respawn -= dt) <= 0) this.spawnHero(k);
     }

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { GAME_W } from '../config';
 import { LEVELS, Theme } from '../data/levels';
-import { getDifficulty, getStars, setDifficulty } from '../save';
+import { getBestScore, getDifficulty, getStars, setDifficulty } from '../save';
+import { fmt } from '../score';
 import { button, text, icon, C } from '../ui';
 import { t } from '../i18n';
 
@@ -20,6 +21,7 @@ export class LevelSelectScene extends Phaser.Scene {
 
     // 머리줄: 뒤로, 제목, 난이도(세 칸 선택)
     button(this, 44, 44, 52, 40, '', () => this.scene.start('Menu'), C.slate, 16, { icon: 'ic_back', iconScale: 0.7, radius: 12 });
+    button(this, 108, 44, 52, 40, '', () => this.scene.start('Ranking'), C.slate, 16, { icon: 'ic_trophy', iconScale: 0.8, radius: 12 });
     text(this, GAME_W / 2 - 40, 44, t('stageSelect'), 30, C.gold, { weight: '700' });
     const diff = getDifficulty();
     text(this, GAME_W - 270, 44, t('difficulty'), 13, C.dim);
@@ -67,7 +69,9 @@ export class LevelSelectScene extends Phaser.Scene {
     c.add(text(this, 22, -18, t('level.' + lv.id), 13, unlocked ? C.text : '#56627f', { weight: '500' }).setWordWrapWidth(104).setAlign('center'));
     if (unlocked) {
       const stars = getStars(lv.id);
-      for (let s = 0; s < 3; s++) c.add(icon(this, s < stars ? 'ic_star' : 'ic_star_off', 22 + (s - 1) * 26, 24, 0.62));
+      for (let s = 0; s < 3; s++) c.add(icon(this, s < stars ? 'ic_star' : 'ic_star_off', -22 + s * 19, 22, 0.5));
+      const bs = getBestScore(lv.id);
+      if (bs) c.add(text(this, W / 2 - 8, 22, fmt(bs.score), 12, C.gold, { weight: '700' }).setOrigin(1, 0.5));
       c.setInteractive({ useHandCursor: true });
       c.on('pointerover', () => { draw(true); c.setScale(1.04); });
       c.on('pointerout', () => { draw(false); c.setScale(1); });

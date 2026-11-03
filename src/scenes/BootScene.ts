@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getSkin, markSkinTexture, mergeIndex, queueSkin, SkinIndex } from '../skin';
+import { markSkinTexture, queueSkin, SkinIndex } from '../skin';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -17,7 +17,7 @@ function circ(g: G, x: number, y: number, r: number, fill: number, stroke = 0x1b
 }
 
 /**
- * 먼저 선택한 스킨(svg / image)의 이미지를 불러오고, 이미지가 없는 키만 도형으로 만든 텍스처로 채운다.
+ * 먼저 SVG 그림을 불러오고, 그림이 없는 키만 도형으로 만든 텍스처로 채운다.
  * (그림 파일이 하나도 없어도 게임이 돌아가도록 하는 폴백이다)
  */
 export class BootScene extends Phaser.Scene {
@@ -26,19 +26,16 @@ export class BootScene extends Phaser.Scene {
   preload() {
     const base = import.meta.env.BASE_URL;
     this.load.json('skin-svg', `${base}skins/svg/index.json`);
-    if (getSkin() === 'image') this.load.json('skin-image', `${base}skins/image/index.json`);
   }
 
   create() {
-    const skin = getSkin();
-    const asIndex = (k: string) => (this.cache.json.exists(k) ? (this.cache.json.get(k) as SkinIndex) : undefined);
-    const merged = mergeIndex(skin, asIndex('skin-svg'), asIndex('skin-image'));
+    const index = this.cache.json.exists('skin-svg') ? (this.cache.json.get('skin-svg') as SkinIndex) : undefined;
     const finish = () => {
-      for (const k of Object.keys(merged)) if (this.textures.exists(k)) markSkinTexture(k);
+      for (const k of Object.keys(index ?? {})) if (this.textures.exists(k)) markSkinTexture(k);
       this.makeProceduralTextures();
       this.scene.start('Menu');
     };
-    if (queueSkin(this.load, skin, merged) === 0) { finish(); return; }
+    if (queueSkin(this.load, index) === 0) { finish(); return; }
     this.load.once('complete', finish);
     this.load.start();
   }
@@ -84,9 +81,16 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xa9d6ff).fillPoints([new Phaser.Math.Vector2(14, 13), new Phaser.Math.Vector2(34, 13), new Phaser.Math.Vector2(34, 24), new Phaser.Math.Vector2(24, 36), new Phaser.Math.Vector2(14, 24)], true);
       g.fillStyle(0x2a68c0).fillRect(22, 15, 4, 18).fillRect(16, 21, 16, 4);
     });
-    tex(this, 'ic_ad', 48, 48, (g) => {
-      g.fillStyle(0xffffff).fillRoundedRect(4, 10, 40, 28, 7);
-      g.fillStyle(0x7a5be0).fillTriangle(19, 17, 19, 31, 33, 24);
+    tex(this, 'ic_trophy', 48, 48, (g) => {
+      g.lineStyle(4, 0xf6b82e, 1).beginPath().arc(11, 16, 6, Math.PI * 0.5, Math.PI * 1.5).strokePath();
+      g.lineStyle(4, 0xf6b82e, 1).beginPath().arc(37, 16, 6, -Math.PI * 0.5, Math.PI * 0.5).strokePath();
+      g.fillStyle(0xffcf3a).fillPoints([new Phaser.Math.Vector2(11, 6), new Phaser.Math.Vector2(37, 6), new Phaser.Math.Vector2(35, 23), new Phaser.Math.Vector2(29, 31), new Phaser.Math.Vector2(19, 31), new Phaser.Math.Vector2(13, 23)], true);
+      g.fillStyle(0xd98e12).fillRect(21, 31, 6, 7).fillRoundedRect(13, 38, 22, 6, 2);
+      g.fillStyle(0xffffff, 0.45).fillRect(15, 9, 4, 12);
+    });
+    tex(this, 'ic_edit', 48, 48, (g) => {
+      g.fillStyle(0xffffff).fillPoints([new Phaser.Math.Vector2(30, 8), new Phaser.Math.Vector2(40, 18), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40), new Phaser.Math.Vector2(8, 30)], true);
+      g.fillStyle(0xffb347).fillPoints([new Phaser.Math.Vector2(8, 30), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40)], true);
     });
     tex(this, 'ic_sell', 48, 48, (g) => {
       g.fillStyle(0xf6b82e).fillCircle(24, 24, 19);
