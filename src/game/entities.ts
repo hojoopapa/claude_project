@@ -20,6 +20,35 @@ export interface World {
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 
+const easeOutBack = (p: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+
+/** 몸 아래 그림자. 공중 유닛은 더 작고 옅게 그린다. */
+function makeShadow(w: World, img: Phaser.GameObjects.Image, flying = false) {
+  const wd = img.displayWidth * (flying ? 0.42 : 0.6);
+  return w.gs.add.ellipse(img.x, img.y, wd, wd * 0.3, 0x000000, flying ? 0.13 : 0.24).setDepth(2);
+}
+
+/** 쓰러지거나 사라질 때: 줄어들며 기울고 가라앉는 연출 후 정리 */
+function vanish(w: World, img: Phaser.GameObjects.Image, fall: number, spin: number, ms: number) {
+  w.gs.tweens.add({
+    targets: img, alpha: 0, scaleX: img.scaleX * 0.55, scaleY: img.scaleY * 0.55, y: img.y + fall, angle: spin,
+    duration: ms, ease: 'Quad.In', onComplete: () => img.destroy(),
+  });
+}
+
+interface Pose { dy: number; rot: number; sx: number; sy: number }
+
+/** 걷기: 위아래로 통통 튀고, 좌우로 기울고, 살짝 눌렸다 펴진다. 멈추면 숨쉬듯 부풀었다 가라앉는다. */
+function walkPose(heavy: boolean, t: number, speed: number, moving: boolean): Pose {
+  if (!moving) return { dy: 0, rot: 0, sx: 1, sy: 1 + Math.sin(t * 2.4) * 0.02 };
+  const w = (heavy ? 5 : 7) + speed * (heavy ? 0.06 : 0.1);
+  const s = Math.sin(t * w), c = Math.cos(t * w * 2);
+  return { dy: -Math.abs(s) * (heavy ? 2.6 : 3.4), rot: s * (heavy ? 0.04 : 0.085), sx: 1 - c * 0.02, sy: 1 + c * 0.035 };
+}
+
+/** 공격할 때 상대 쪽으로 잠깐 내미는 거리 */
+const lungeOf = (swing: number, dir: number) => (swing > 0 ? Math.sin(Math.PI * (1 - swing / 0.22)) * 6 * dir : 0);
+
 export class Enemy {
   readonly def: EnemyDef;
   readonly img: Phaser.GameObjects.Image;
@@ -36,6 +65,13 @@ export class Enemy {
   private slowT = 0;
   private stunT = 0;
   private healT = 0;
+  private anim = Math.random() * 6;   // 움직임 위상
+  private swing = 0;                  // 공격 때 내미는 연출의 남은 시간
+  private swingDir = 1;
+  private pop = 0;                    // 맞았을 때 순간 부푸는 연출
+  private born = 0;
+  private baseScale: number;
+  private shadow: Phaser.GameObjects.Ellipse;
 
   constructor(private w: World, kind: EnemyKind, readonly path: PathData) {
     this.def = ENEMIES[kind];
@@ -43,13 +79,16 @@ export class Enemy {
     const p = path.at(0);
     this.x = p.x; this.y = p.y;
     const tx = texFor(this.def.tex);
-    this.img = w.gs.add.image(p.x, p.y, tx.key).setScale(this.def.scale * tx.scale);
+    this.baseScale = this.def.scale * tx.scale;
+    this.img = w.gs.add.image(p.x, p.y, tx.key).setScale(this.baseScale).setAlpha(0);
+    this.shadow = makeShadow(w, this.img, this.def.flying).setAlpha(0);
   }
 
   hurt(amount: number, magic: boolean) {
     const reduce = magic ? this.def.mr : this.def.armor;
     this.hp -= amount * (1 - reduce);
     this.flash = 0.08;
+    this.pop = 0.12;
     this.img.setTint(0xff8080);
     if (this.hp <= 0 && !this.dead) this.die(true);
   }
@@ -63,17 +102,44 @@ export class Enemy {
 
   die(killed: boolean) {
     this.dead = true;
-    this.img.destroy();
+    this.shadow.destroy();
+    if (killed) vanish(this.w, this.img, this.def.flying ? 28 : -6, (this.x % 2 < 1 ? 1 : -1) * (this.def.flying ? 50 : 24), this.def.flying ? 340 : 260);
+    else vanish(this.w, this.img, 0, 0, 180);
     if (killed) this.w.gainGold(this.def.gold, this.x, this.y);
   }
 
+  /** 현재 자세(걷기/날갯짓/둥실)를 이미지와 그림자에 반영 */
+  private applyPose(moving: boolean) {
+    const t = this.anim, def = this.def;
+    let p: Pose;
+    if (def.anim === 'flap') {
+      const drake = def.tex === 'e_drake';
+      p = { dy: Math.sin(t * (drake ? 3.5 : 5)) * 3, rot: Math.sin(t * (drake ? 3.5 : 5)) * (drake ? 0.03 : 0.08), sx: 1, sy: 1 + Math.sin(t * (drake ? 7 : 24)) * (drake ? 0.07 : 0.17) };
+    } else if (def.anim === 'float') {
+      p = { dy: Math.sin(t * 2.6) * 3, rot: Math.sin(t * 1.6) * 0.05, sx: 1 + Math.sin(t * 3.4) * 0.03, sy: 1 + Math.sin(t * 3.4) * 0.03 };
+    } else p = walkPose(def.anim === 'heavy', t, def.speed, moving);
+    const k = 1 + Math.max(0, this.pop) * 0.7;
+    const air = def.flying ? -20 : 0;
+    this.img
+      .setPosition(this.x + lungeOf(this.swing, this.swingDir), this.y + air + p.dy)
+      .setRotation(this.stunT > 0 ? Math.sin(t * 22) * 0.18 : p.rot)
+      .setScale(this.baseScale * p.sx * k, this.baseScale * p.sy * k)
+      .setDepth(def.flying ? 700 : this.y);
+    this.shadow.setPosition(this.x, this.y + (def.flying ? 8 : this.img.displayHeight * 0.4));
+  }
+
   update(dt: number) {
+    if (this.dead) return; // 같은 틱에 스펠 등으로 이미 죽었으면 건드리지 않는다 (그림자는 이미 정리됨)
+    this.anim += dt;
+    if (this.swing > 0) this.swing -= dt;
+    if (this.pop > 0) this.pop -= dt;
+    if (this.born < 0.3) { this.born += dt; const a = Math.min(1, this.born / 0.3); this.img.setAlpha(a); this.shadow.setAlpha(a); }
     if (this.flash > 0) this.flash -= dt;
     if (this.slowT > 0 && (this.slowT -= dt) <= 0) this.slowMul = 1;
     if (this.flash > 0) this.img.setTint(0xff8080);
     else if (this.slowT > 0 || this.stunT > 0) this.img.setTint(0x99ccff);
     else this.img.clearTint();
-    if (this.stunT > 0) { this.stunT -= dt; return; }
+    if (this.stunT > 0) { this.stunT -= dt; this.applyPose(false); return; }
     const heal = this.def.heal;
     if (heal && (this.healT -= dt) <= 0) {
       this.healT = heal.every;
@@ -87,7 +153,14 @@ export class Enemy {
     }
     if (this.blocker?.dead) this.blocker = null;
     if (this.blocker && dist(this.blocker, this) < 30) {
-      if ((this.atk -= dt) <= 0) { this.atk = 1; this.blocker.hurt(this.def.dmg); }
+      if ((this.atk -= dt) <= 0) {
+        this.atk = 1;
+        const bk = this.blocker;      // hurt()가 상대를 죽이면 this.blocker 가 비워지므로 먼저 잡아 둔다
+        this.swing = 0.22;
+        this.swingDir = bk.x >= this.x ? 1 : -1;
+        bk.hurt(this.def.dmg);
+      }
+      this.applyPose(false);
       return;
     }
     const before = this.x;
@@ -100,8 +173,7 @@ export class Enemy {
     const p = this.path.at(this.d);
     this.x = p.x; this.y = p.y;
     if (Math.abs(this.x - before) > 0.01) this.img.setFlipX(this.x < before);
-    const bob = this.def.flying ? -20 + Math.sin(this.d / 12) * 4 : 0;
-    this.img.setPosition(this.x, this.y + bob).setDepth(this.def.flying ? 700 : this.y);
+    this.applyPose(true);
   }
 }
 
@@ -115,6 +187,13 @@ export class Soldier {
   target: Enemy | null = null;
   atkCd = 1;
   protected atk = 0;
+  protected anim = Math.random() * 6;
+  protected swing = 0;
+  protected swingDir = 1;
+  protected pop = 0;
+  private born = 0;
+  private base: number;
+  private shadow: Phaser.GameObjects.Ellipse;
 
   constructor(
     protected w: World, public home: Vec, public dmg: number, hp: number,
@@ -123,21 +202,47 @@ export class Soldier {
     this.hp = this.maxHp = hp;
     this.x = home.x; this.y = home.y;
     const tx = texFor(tex);
-    this.img = w.gs.add.image(this.x, this.y, tx.key).setScale(tx.scale);
+    this.base = tx.scale;
+    this.img = w.gs.add.image(this.x, this.y, tx.key).setScale(tx.scale).setAlpha(0);
+    this.shadow = makeShadow(w, this.img).setAlpha(0);
   }
 
   hurt(n: number) {
     this.hp -= n;
+    this.pop = 0.12;
     if (this.hp <= 0) this.kill();
   }
 
   kill() {
     this.dead = true;
     if (this.target && this.target.blocker === this) this.target.blocker = null;
-    this.img.destroy();
+    this.shadow.destroy();
+    vanish(this.w, this.img, 4, this.img.flipX ? -70 : 70, 300);
+  }
+
+  /** 움직임 시계, 등장 페이드, 연출 타이머 갱신 */
+  protected tick(dt: number) {
+    this.anim += dt;
+    if (this.swing > 0) this.swing -= dt;
+    if (this.pop > 0) this.pop -= dt;
+    if (this.born < 0.25) { this.born += dt; const a = Math.min(1, this.born / 0.25); this.img.setAlpha(a); this.shadow.setAlpha(a); }
+  }
+
+  /** 현재 자세를 이미지와 그림자에 반영 */
+  protected applyPose(moving: boolean) {
+    const p = walkPose(false, this.anim, 55, moving);
+    const k = 1 + Math.max(0, this.pop) * 0.7;
+    this.img
+      .setPosition(this.x + lungeOf(this.swing, this.swingDir), this.y + p.dy)
+      .setRotation(p.rot)
+      .setScale(this.base * p.sx * k, this.base * p.sy * k)
+      .setDepth(this.y);
+    this.shadow.setPosition(this.x, this.y + this.img.displayHeight * 0.42);
   }
 
   update(dt: number) {
+    if (this.dead) return;
+    this.tick(dt);
     if ((this.life -= dt) <= 0) { this.kill(); return; }
     const t = this.target;
     if (t && (t.dead || dist(t, this.home) > this.leash * 1.7)) {
@@ -158,14 +263,23 @@ export class Soldier {
     const goal: Vec = this.target ?? this.home;
     const dd = dist(goal, this);
     const stop = this.target ? 22 : 3;
+    let moving = false;
     if (dd > stop) {
       const k = Math.min(dd - stop, 95 * dt) / dd;
       this.x += (goal.x - this.x) * k;
       this.y += (goal.y - this.y) * k;
+      moving = true;
+      if (Math.abs(goal.x - this.x) > 1) this.img.setFlipX(goal.x < this.x);
     } else if (this.target) {
-      if ((this.atk -= dt) <= 0) { this.atk = this.atkCd; this.target.hurt(this.dmg, false); }
+      if ((this.atk -= dt) <= 0) {
+        this.atk = this.atkCd;
+        const tg = this.target;
+        this.swing = 0.22;
+        this.swingDir = tg.x >= this.x ? 1 : -1;
+        tg.hurt(this.dmg, false);
+      }
     }
-    this.img.setPosition(this.x, this.y).setDepth(this.y);
+    this.applyPose(moving);
     if (this.target) this.img.setFlipX(this.target.x < this.x);
   }
 }
@@ -248,13 +362,17 @@ export class Tower {
   level = 0;
   spent: number;
   private cd = 0;
+  private age = 0;                 // 지은 뒤/올린 뒤 시간 (튀어오르는 연출)
+  private pulse = 0;                // 공격할 때 살짝 튀는 연출의 남은 시간
+  private baseScale = 1;
   private slots: { s: Soldier | null; respawn: number }[] = [];
   private rally: Vec = { x: 0, y: 0 };
 
   constructor(private w: World, readonly kind: TowerKind, readonly pos: Vec, paths: PathData[]) {
     this.spent = TOWERS[kind].levels[0].cost;
     const tx = texFor(TOWERS[kind].tex, 0);
-    this.img = w.gs.add.image(pos.x, pos.y + 6, tx.key).setScale(tx.scale).setOrigin(0.5, tx.scale === 1 ? 0.85 : 0.9).setDepth(pos.y);
+    this.baseScale = tx.scale;
+    this.img = w.gs.add.image(pos.x, pos.y + 6, tx.key).setScale(tx.scale * 0.3).setOrigin(0.5, tx.scale === 1 ? 0.85 : 0.9).setDepth(pos.y);
     if (kind === 'barracks') {
       let best = { pt: pos, dist: Infinity };
       for (const p of paths) { const n = p.nearest(pos); if (n.dist < best.dist) best = n; }
@@ -272,7 +390,9 @@ export class Tower {
     this.spent += this.upgradeCost;
     this.level++;
     const tx = texFor(TOWERS[this.kind].tex, this.level);
-    this.img.setTexture(tx.key).setScale(tx.scale);
+    this.baseScale = tx.scale;
+    this.age = 0;
+    this.img.setTexture(tx.key);
     for (const sl of this.slots) {
       if (sl.s && !sl.s.dead) {
         sl.s.maxHp = this.lv.soldierHp!; sl.s.hp = sl.s.maxHp;
@@ -286,7 +406,17 @@ export class Tower {
     for (const sl of this.slots) if (sl.s && !sl.s.dead) sl.s.kill();
   }
 
+  /** 지을 때/올릴 때 튀어오르고, 공격할 때 살짝 튄다 */
+  private animate(dt: number) {
+    this.age += dt;
+    let k = 1;
+    if (this.age < 0.35) k = Math.max(0.02, easeOutBack(this.age / 0.35));
+    else if (this.pulse > 0) { this.pulse -= dt; k = 1 + Math.sin(Math.PI * (1 - Math.max(0, this.pulse) / 0.16)) * 0.045; }
+    this.img.setScale(this.baseScale * (1 + (k - 1) * 0.6), this.baseScale * k);
+  }
+
   update(dt: number) {
+    this.animate(dt);
     if (this.kind === 'barracks') { this.updateBarracks(dt); return; }
     this.cd -= dt;
     if (this.cd > 0) return;
@@ -300,6 +430,7 @@ export class Tower {
     }
     if (!best) return;
     this.cd = this.lv.cd;
+    this.pulse = 0.16;
     const from = { x: this.pos.x, y: this.pos.y - 34 };
     if (this.kind === 'archer') this.w.projs.push(new Projectile(this.w, 'arrow', from.x, from.y, best, this.lv.dmg));
     else if (this.kind === 'mage') this.w.projs.push(new Projectile(this.w, 'orb', from.x, from.y - 6, best, this.lv.dmg));
@@ -375,10 +506,15 @@ export class Hero extends Soldier {
   }
 
   private updateRanged(dt: number, range: number, dmg: number, cd: number) {
+    if (this.dead) return;
+    this.tick(dt);
     const dx = this.home.x - this.x, dy = this.home.y - this.y, dd = Math.hypot(dx, dy);
+    let moving = false;
     if (dd > 3) {
       const k = Math.min(dd, 110 * dt) / dd;
       this.x += dx * k; this.y += dy * k;
+      moving = true;
+      if (Math.abs(dx) > 1) this.img.setFlipX(dx < 0);
     }
     this.cd -= dt;
     let best: Enemy | null = null, bd = range;
@@ -391,9 +527,11 @@ export class Hero extends Soldier {
       this.img.setFlipX(best.x < this.x);
       if (this.cd <= 0) {
         this.cd = cd;
+        this.swing = 0.22;           // 시전할 때 살짝 앞으로 내민다
+        this.swingDir = best.x >= this.x ? 1 : -1;
         this.w.projs.push(new Projectile(this.w, 'orb', this.x, this.y - 18, best, dmg));
       }
     }
-    this.img.setPosition(this.x, this.y).setDepth(this.y);
+    this.applyPose(moving);
   }
 }

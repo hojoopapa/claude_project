@@ -14,8 +14,8 @@ export interface TowerLvl {
 
 export interface TowerDef {
   tex: string;
-  /** true면 광고를 시청해야 해당 스테이지에서 사용 가능 */
-  adLock?: boolean;
+  /** 튜토리얼 구간(1~4번)이 끝나야 열리는 타워 */
+  extra?: boolean;
   levels: TowerLvl[];
 }
 
@@ -53,7 +53,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
     ],
   },
   frost: {
-    tex: 't_frost', adLock: true,
+    tex: 't_frost', extra: true,
     levels: [
       { cost: 110, range: 120, dmg: 10, cd: 1.2, slow: 0.65, slowDur: 2 },
       { cost: 130, range: 130, dmg: 17, cd: 1.1, slow: 0.55, slowDur: 2.5 },
@@ -61,7 +61,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
     ],
   },
   thunder: {
-    tex: 't_thunder', adLock: true,
+    tex: 't_thunder', extra: true,
     levels: [
       { cost: 140, range: 140, dmg: 40, cd: 1.6, chain: 3 },
       { cost: 160, range: 150, dmg: 66, cd: 1.5, chain: 4 },

@@ -22,14 +22,26 @@ const FLAT = {
   goblin: '#80c350', orc: '#4b8b31', wolf: '#8e96a3', ogre: '#8f5c38', rock: '#8c8c99', wisp: '#93e0ff', drake: '#c23a2c',
   bat: '#6b4092', ghost: '#aae7df', orb: '#c59bf2', glowY: '#ffe14a', glowC: '#80e8ff',
 };
-/** 단순 모드: 그라데이션 -> 단색, 가는 잔선 그룹 제거 */
+/** 색 섞기 (hex 두 개를 비율 t 로) */
+function mix(a, b, t) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b);
+  const c = (x, y) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  return `#${c(r1, r2)}${c(g1, g2)}${c(b1, b2)}`;
+}
+/** 단순 모드의 부드러운 명암: 단색 FLAT 을 기준으로 위는 밝게, 아래는 어둡게 */
+const SOFT_DEFS = Object.entries(FLAT)
+  .map(([id, c]) => `<linearGradient id="s_${id}" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="${mix(c, '#ffffff', 0.2)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${mix(c, '#1a1030', 0.22)}"/></linearGradient>`)
+  .join('');
+
+/** 단순 모드: 잔선 그룹 제거, 그라데이션은 부드러운 명암으로 */
 function simplify(svgText) {
-  let t = svgText.replace(/url\(#([A-Za-z]+)\)/g, (m, id) => FLAT[id] || m);
+  let t = svgText.replace(/url\(#([A-Za-z]+)\)/g, (m, id) => (FLAT[id] ? `url(#s_${id})` : m));
   t = t.replace(/<g stroke="#[0-9a-fA-F]+" stroke-width="(?:[0-9.]+)" fill="none"[^>]*>.*?<\/g>/g, (m) => {
     const w = Number(/stroke-width="([0-9.]+)"/.exec(m)[1]);
     return w <= 3.5 ? '' : m;
   });
-  return t;
+  return t.replace('</defs>', `${SOFT_DEFS}</defs>`);
 }
 
 // ---------- 공통 그라데이션 ----------
@@ -71,7 +83,7 @@ const DEFS = `<defs>${[
 
 const svg = (w, h, body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${DEFS}` +
-  `<g stroke="${OUT}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">${body}</g></svg>`;
+  `<g stroke="${OUT}" stroke-width="${SIMPLE ? 4.2 : 5}" stroke-linejoin="round" stroke-linecap="round">${body}</g></svg>`;
 
 const thin = (c = '#6b6455', w = 3) => `stroke="${c}" stroke-width="${w}" fill="none"`;
 const nos = 'stroke="none"';

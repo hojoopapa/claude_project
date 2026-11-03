@@ -30,9 +30,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-        env:
-          # 피드백용 공개 빌드: 테스트 광고를 5초로 줄인다 (기본은 30초)
-          VITE_AD_SECONDS: '5'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

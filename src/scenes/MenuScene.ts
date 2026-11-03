@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import { button, text, C } from '../ui';
 import { LANGS, langIndex, nextLang, t } from '../i18n';
-import { getSkin, switchSkin, texFor } from '../skin';
+import { texFor } from '../skin';
 
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
@@ -25,9 +25,7 @@ export class MenuScene extends Phaser.Scene {
 
     button(this, GAME_W / 2, 468, 260, 64, t('start'), () => this.scene.start('LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
 
-    // 오른쪽 위: 언어, 그래픽
-    const skin = getSkin();
+    // 오른쪽 위: 언어
     button(this, GAME_W - 82, 30, 134, 34, `${LANGS[langIndex()].name}`, () => { nextLang(); this.scene.restart(); }, C.slate, 14, { radius: 17 });
-    button(this, GAME_W - 82, 72, 134, 34, `${t('graphics')}: ${t('skin.' + skin)}`, () => switchSkin(skin === 'svg' ? 'image' : 'svg'), C.slate, 13, { radius: 17 });
   }
 }
