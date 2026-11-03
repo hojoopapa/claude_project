@@ -3,6 +3,7 @@ import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { GameScene } from './scenes/GameScene';
+import { RankingScene } from './scenes/RankingScene';
 import { GAME_W, GAME_H } from './config';
 
 // 글꼴을 잠깐(최대 1.2초) 기다렸다가 시작한다. 못 불러와도(오프라인 등) 시스템 글꼴로 계속 진행한다.
@@ -20,7 +21,7 @@ const game = new Phaser.Game({
   backgroundColor: '#14121f',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   disableContextMenu: true,
-  scene: [BootScene, MenuScene, LevelSelectScene, GameScene],
+  scene: [BootScene, MenuScene, LevelSelectScene, GameScene, RankingScene],
 });
 
 if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

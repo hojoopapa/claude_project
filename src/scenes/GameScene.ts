@@ -8,7 +8,10 @@ import { Enemy, Hero, Projectile, Soldier, Tower, World } from '../game/entities
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { hasSkinTexture, texFor } from '../skin';
-import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen } from '../save';
+import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer, setPlayer } from '../save';
+import { calcScore, fmt } from '../score';
+import { cleanName, rankingEnabled, submitScore } from '../ranking';
+import { promptText } from '../domDialog';
 import { DIFFICULTIES, Features, featuresFor, TUTORIAL_STAGES } from '../data/features';
 import { Btn, button, text, C, icon, panel, modal } from '../ui';
 
@@ -602,31 +605,83 @@ export class GameScene extends Phaser.Scene implements World {
     this.closeMenu();
     const stars = win ? (this.lives >= this.maxLives * 0.9 ? 3 : this.lives >= this.maxLives * 0.5 ? 2 : 1) : 0;
     if (win) saveStars(this.level.id, stars);
+    const diff = getDifficulty();
+    const sc = win ? calcScore(this.level, this.lives, this.clock, diff) : null;
+    const record = sc ? saveBestScore(this.level.id, sc.total, diff) : false;
     const canNext = win && this.index + 1 < LEVELS.length;
-    const nBtn = (canNext ? 1 : 0) + 2;
-    const H = (win ? 250 : 190) + nBtn * 56;
-    const m = modal(this, 480, H, 2000, win ? C.goldHex : C.danger);
+
+    const W = 780, H = 370;
+    const m = modal(this, W, H, 2000, win ? C.goldHex : C.danger);
     const ui = this.resultUi;
     ui.push(...m.objects);
-    const top = m.cy - H / 2;
-    ui.push(text(this, m.cx, top + 56, win ? t('victory') : t('defeat'), 44, win ? C.gold : C.red).setDepth(2002));
-    let y = top + 100;
-    if (win) {
+    const top = m.cy - H / 2, lx = m.cx - 205, rx = m.cx + 195;
+    m.g.lineStyle(1, 0xffffff, 0.1).lineBetween(m.cx - 5, top + 34, m.cx - 5, top + H - 34);
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => { ui.push(o); return o; };
+
+    // ----- 왼쪽: 결과와 점수 -----
+    add(text(this, lx, top + (win ? 50 : 150), win ? t('victory') : t('defeat'), 40, win ? C.gold : C.red).setDepth(2002));
+    if (sc) {
       for (let i = 0; i < 3; i++) {
-        const st = icon(this, i < stars ? 'ic_star' : 'ic_star_off', m.cx + (i - 1) * 64, y + 28, 1.7).setDepth(2002).setScale(0);
-        this.tweens.add({ targets: st, scale: 0.85, duration: 260, delay: 180 + i * 160, ease: 'Back.Out' });
-        ui.push(st);
+        const st = icon(this, i < stars ? 'ic_star' : 'ic_star_off', lx + (i - 1) * 58, top + 104, 1.45).setDepth(2002).setScale(0);
+        this.tweens.add({ targets: st, scale: 0.72, duration: 260, delay: 150 + i * 150, ease: 'Back.Out' });
+        add(st);
       }
-      y += 84;
-    } else y += 6;
-    y += 22;
+      add(text(this, lx, top + 150, t('score'), 13, C.dim, { weight: '500' }).setDepth(2002));
+      const val = add(text(this, lx, top + 184, '0', 42, C.gold, { weight: '700' }).setDepth(2002)) as Phaser.GameObjects.Text;
+      this.tweens.addCounter({ from: 0, to: sc.total, duration: 800, delay: 300, onUpdate: (tw) => val.setText(fmt(tw.getValue() ?? 0)) });
+      const best = getBestScore(this.level.id);
+      if (record) {
+        const nr = add(text(this, lx, top + 216, t('newRecord'), 15, '#7dffb0', { weight: '700' }).setDepth(2002).setScale(0)) as Phaser.GameObjects.Text;
+        this.tweens.add({ targets: nr, scale: 1, duration: 300, delay: 1000, ease: 'Back.Out' });
+      } else if (best) add(text(this, lx, top + 216, t('bestScore', { n: fmt(best.score) }), 14, C.dim, { weight: '500' }).setDepth(2002));
+      const rows: [string, string][] = [
+        [t('scoreClear'), `+${fmt(sc.base)}`],
+        [t('scoreLives', { n: this.lives }), `+${fmt(sc.lives)}`],
+        [t('scoreTime'), `+${fmt(sc.time)}`],
+        [t('scoreDiff', { m: sc.mult }), ''],
+      ];
+      rows.forEach(([a, b], i) => {
+        const y = top + 246 + i * 21;
+        add(text(this, lx - 140, y, a, 13, C.dim, { weight: '500' }).setOrigin(0, 0.5).setDepth(2002));
+        add(text(this, lx + 140, y, b, 13, C.text, { weight: '600' }).setOrigin(1, 0.5).setDepth(2002));
+      });
+    }
+
+    // ----- 오른쪽: 버튼 -----
+    let y = top + (win ? 56 : 120);
     const mk = (label: string, cb: () => void, color: number, ic?: string) => {
-      const b = button(this, m.cx, y, 380, 46, label, cb, color, 17, ic ? { icon: ic, iconScale: 0.9 } : {});
+      const b = button(this, rx, y, 320, 44, label, cb, color, 17, ic ? { icon: ic, iconScale: 0.8 } : {});
       b.bg.setDepth(2002);
       ui.push(b.bg);
-      y += 56;
+      y += 54;
+      return b;
     };
     if (canNext) mk(t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), C.green, 'ic_play');
+    if (sc && rankingEnabled()) {
+      let busy = false;
+      const sb = mk(t('rankSubmit'), async () => {
+        if (busy) return;
+        busy = true;
+        try {
+          if (!cleanName(getPlayer().name)) {
+            const v = await promptText({ title: t('nickname'), hint: t('nameHint'), value: '', maxLen: 12, ok: t('ok'), cancel: t('cancel'), filter: cleanName });
+            if (!v) { busy = false; return; }
+            setPlayer({ name: v });
+          }
+          const bs = getBestScore(this.level.id) ?? { score: sc.total, diff };
+          await submitScore(this.level.id, bs.score, bs.diff);
+          sb.setLabel(t('rankDone')); sb.setEnabled(false);
+        } catch { sb.setLabel(t('rankFail')); busy = false; }
+      }, C.orange, 'ic_trophy');
+    }
+    if (sc) {
+      const share = `${t('title')} · ${t('stageN', { n: this.level.id })} ${t('level.' + this.level.id)}: ${fmt(sc.total)} (${t('diff.' + diff)}) ${'★'.repeat(stars)}\n${location.origin}${location.pathname}`;
+      const cb = mk(t('copyResult'), async () => {
+        try { await navigator.clipboard.writeText(share); cb.setLabel(t('copied')); } catch {
+          await promptText({ title: t('copyResult'), value: share, maxLen: 300, ok: t('ok'), cancel: t('cancel') });
+        }
+      }, C.slate);
+    }
     mk(t('retry'), () => this.scene.restart({ index: this.index }), C.blue);
     mk(t('stageSelect'), () => this.scene.start('LevelSelect'), C.slate);
   }

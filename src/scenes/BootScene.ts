@@ -81,6 +81,17 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xa9d6ff).fillPoints([new Phaser.Math.Vector2(14, 13), new Phaser.Math.Vector2(34, 13), new Phaser.Math.Vector2(34, 24), new Phaser.Math.Vector2(24, 36), new Phaser.Math.Vector2(14, 24)], true);
       g.fillStyle(0x2a68c0).fillRect(22, 15, 4, 18).fillRect(16, 21, 16, 4);
     });
+    tex(this, 'ic_trophy', 48, 48, (g) => {
+      g.lineStyle(4, 0xf6b82e, 1).beginPath().arc(11, 16, 6, Math.PI * 0.5, Math.PI * 1.5).strokePath();
+      g.lineStyle(4, 0xf6b82e, 1).beginPath().arc(37, 16, 6, -Math.PI * 0.5, Math.PI * 0.5).strokePath();
+      g.fillStyle(0xffcf3a).fillPoints([new Phaser.Math.Vector2(11, 6), new Phaser.Math.Vector2(37, 6), new Phaser.Math.Vector2(35, 23), new Phaser.Math.Vector2(29, 31), new Phaser.Math.Vector2(19, 31), new Phaser.Math.Vector2(13, 23)], true);
+      g.fillStyle(0xd98e12).fillRect(21, 31, 6, 7).fillRoundedRect(13, 38, 22, 6, 2);
+      g.fillStyle(0xffffff, 0.45).fillRect(15, 9, 4, 12);
+    });
+    tex(this, 'ic_edit', 48, 48, (g) => {
+      g.fillStyle(0xffffff).fillPoints([new Phaser.Math.Vector2(30, 8), new Phaser.Math.Vector2(40, 18), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40), new Phaser.Math.Vector2(8, 30)], true);
+      g.fillStyle(0xffb347).fillPoints([new Phaser.Math.Vector2(8, 30), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40)], true);
+    });
     tex(this, 'ic_sell', 48, 48, (g) => {
       g.fillStyle(0xf6b82e).fillCircle(24, 24, 19);
       g.lineStyle(3, 0xd48a10, 1).strokeCircle(24, 24, 13);

@@ -23,7 +23,9 @@ export class MenuScene extends Phaser.Scene {
     text(this, GAME_W / 2, 100, t('title'), 60, C.gold, { weight: '700' });
     this.add.rectangle(GAME_W / 2, 142, 90, 4, 0xffd36b, 0.9);
 
-    button(this, GAME_W / 2, 468, 260, 64, t('start'), () => this.scene.start('LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
+    button(this, GAME_W / 2, 440, 260, 64, t('start'), () => this.scene.start('LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
+
+    button(this, GAME_W / 2, 500, 200, 40, t('ranking'), () => this.scene.start('Ranking'), C.slate, 16, { icon: 'ic_trophy', iconScale: 0.65, radius: 20 });
 
     // 오른쪽 위: 언어
     button(this, GAME_W - 82, 30, 134, 34, `${LANGS[langIndex()].name}`, () => { nextLang(); this.scene.restart(); }, C.slate, 14, { radius: 17 });

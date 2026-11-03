@@ -30,6 +30,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # 저장소 Variables 의 RANKING_URL 이 있으면 온라인 랭킹이 켜진다 (docs/ranking-setup.md)
+          VITE_RANKING_URL: ${{ vars.RANKING_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
