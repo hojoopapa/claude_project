@@ -44,8 +44,8 @@ function ensure(): AudioContext | null {
 
 if (typeof window !== 'undefined') {
   const unlock = () => { ensure(); };
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock);
+  // iOS 사파리는 pointerdown 이 아니라 touchend/click 안에서 깨워야 소리가 나므로 함께 건다
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { passive: true });
 }
 
 /** 음 하나: 시작 주파수에서 끝 주파수로 미끄러지며 사라진다 */

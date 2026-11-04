@@ -83,6 +83,9 @@ export interface BtnOpts {
   radius?: number;
 }
 
+/** 버튼의 최소 터치 영역(게임 화면 기준 픽셀). 폰 가로 화면에서는 약 32px 로 줄어든다 */
+const MIN_TOUCH = 44;
+
 /** 둥근 모서리, 은은한 광택과 그림자가 있는 버튼 */
 export function button(
   scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string,
@@ -134,7 +137,10 @@ export function button(
   if (o.icon) setIconKey(o.icon);
   layout();
   draw();
-  c.setInteractive({ useHandCursor: true });
+  // 터치 영역은 모양보다 크게 (작은 버튼도 손가락으로 누를 수 있도록 최소 44x44). 컨테이너 히트 영역은 좌상단 기준 좌표다.
+  const hw = Math.max(w, MIN_TOUCH), hh = Math.max(h, MIN_TOUCH);
+  c.setInteractive(new Phaser.Geom.Rectangle((w - hw) / 2, (h - hh) / 2, hw, hh), Phaser.Geom.Rectangle.Contains);
+  c.input!.cursor = 'pointer';
   c.setData('ui', true);
   c.on('pointerover', () => { hover = true; draw(); });
   c.on('pointerout', () => { hover = false; c.setScale(1); draw(); });

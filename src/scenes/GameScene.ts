@@ -44,6 +44,9 @@ const MAX_PROPS = 14;
 
 const FIRE_CD = 40, REINF_CD = 22;
 
+/** 패배 후 광고를 보고 이어할 때: 스테이지당 횟수, 되살아나는 생명 비율(최대 생명 기준) */
+const REVIVE_PER_STAGE = 1, REVIVE_LIVES_RATIO = 0.5;
+
 export class GameScene extends Phaser.Scene implements World {
   enemies: Enemy[] = [];
   soldiers: Soldier[] = [];
@@ -78,6 +81,8 @@ export class GameScene extends Phaser.Scene implements World {
   private selRally: Tower | null = null;                      // 집결지점을 고르는 중인 병영
   private rallyUi: Phaser.GameObjects.GameObject[] = [];       // 집결지점 선택 중 표시 (범위 원, 깃발)
   private rallyPickDown = -1;                                  // 깃발 버튼을 누른 포인터 다운 시각
+  private reviveLeft = 1;                                      // 이번 스테이지에서 남은 이어하기 횟수
+  private inFrame = false;                                     // 실제 화면 루프(update) 안에서 step 이 불렸는지
   private walls: Wall[] = [];                                  // 지금 서 있는 벽
   private selWall = false;                                     // 벽을 놓을 자리를 고르는 중
   private heroBtns!: Record<HeroKind, { pick: Btn; skill: Btn }>;
@@ -111,6 +116,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.selHero = null; this.tip = null; this.modal = false; this.tutShown = new Set();
     this.selRally = null; this.rallyUi = [];
     this.walls = []; this.selWall = false;
+    this.reviveLeft = REVIVE_PER_STAGE; this.inFrame = false;
   }
 
   create() {
@@ -288,9 +294,10 @@ export class GameScene extends Phaser.Scene implements World {
     const spellX = (k: Spell) => 48 + (['fire', 'reinf'] as Spell[]).filter((q) => f[q]).indexOf(k) * 78;
     const small = { radius: 10 };
     this.buttons = {
-      pause: d(button(this, GAME_W - 30, 22, 40, 32, '', () => this.togglePause(), C.slate, 14, { icon: 'ic_pause', iconScale: 0.7, ...small })),
-      speed3: d(button(this, GAME_W - 78, 22, 42, 32, SPEEDS[3].label, () => this.pickSpeed(3), C.slate, 14, small)),
-      speed2: d(button(this, GAME_W - 126, 22, 42, 32, SPEEDS[2].label, () => this.pickSpeed(2), C.slate, 14, small)),
+      // 상단 버튼은 폰 화면에서도 누르기 쉽게 키웠다 (52x42, 간격 56)
+      pause: d(button(this, GAME_W - 32, 25, 52, 42, '', () => this.togglePause(), C.slate, 15, { icon: 'ic_pause', iconScale: 0.8, ...small })),
+      speed3: d(button(this, GAME_W - 88, 25, 52, 42, SPEEDS[3].label, () => this.pickSpeed(3), C.slate, 16, small)),
+      speed2: d(button(this, GAME_W - 144, 25, 52, 42, SPEEDS[2].label, () => this.pickSpeed(2), C.slate, 16, small)),
       fire: d(button(this, spellX('fire'), y, 66, 66, t('fire'), () => this.pickSpell('fire'), C.orange, 12, { icon: 'ic_fire', iconScale: 1.05, layout: 'top' })),
       reinf: d(button(this, spellX('reinf'), y, 66, 66, t('reinf'), () => this.pickSpell('reinf'), C.blue, 12, { icon: 'ic_reinf', iconScale: 1.05, layout: 'top' })),
       next: d(button(this, GAME_W - 100, y, 170, 58, '', () => this.callNextWave(), C.green, 14, { icon: 'ic_play', iconScale: 0.8 })),
@@ -299,7 +306,7 @@ export class GameScene extends Phaser.Scene implements World {
         `${t('wall')} ${wallFor(this.level.id).cost}`, () => this.pickWall(), 0x8a6a3a, 12,
         { icon: wallFor(this.level.id).tex, iconScale: 1.7, layout: 'top' })),
     };
-    soundButton(this, GAME_W - 174, 22).bg.setDepth(901);
+    soundButton(this, GAME_W - 200, 25, 52, 42).bg.setDepth(901);
     this.refreshSpeedButtons();
     this.buttons.fire.setVisible(f.fire);
     this.buttons.reinf.setVisible(f.reinf);
@@ -307,7 +314,7 @@ export class GameScene extends Phaser.Scene implements World {
       const hx = texFor(HEROES[k].tex);
       return {
         pick: d(button(this, x, y, 118, 58, '', () => this.pickHero(k), 0x6b4a2a, 12, { icon: hx.key, iconScale: hx.scale === 1 ? 1.5 : 0.85 })),
-        skill: d(button(this, x, y - 46, 118, 26, t('skill.' + k), () => this.useAbility(k), 0x258a8a, 12, { radius: 9 })),
+        skill: d(button(this, x, y - 50, 118, 34, t('skill.' + k), () => this.useAbility(k), 0x258a8a, 13, { radius: 10 })),
       };
     };
     this.heroBtns = { knight: mkHero('knight', 252), sorc: mkHero('sorc', 378) };
@@ -822,7 +829,7 @@ export class GameScene extends Phaser.Scene implements World {
       y += 54;
       return b;
     };
-    if (canNext) mk(t('nextStage'), () => this.scene.restart({ index: this.index + 1 }), C.green, 'ic_play');
+    if (canNext) mk(t('nextStage'), () => void this.afterAd(() => this.scene.restart({ index: this.index + 1 })), C.green, 'ic_play');
     if (sc && rankingEnabled()) {
       let busy = false;
       const sb = mk(t('rankSubmit'), async () => {
@@ -848,8 +855,8 @@ export class GameScene extends Phaser.Scene implements World {
         }
       }, C.slate);
     }
-    mk(t('retry'), () => this.scene.restart({ index: this.index }), C.blue);
-    mk(t('stageSelect'), () => this.scene.start('LevelSelect'), C.slate);
+    mk(t('retry'), () => void this.afterAd(() => this.scene.restart({ index: this.index })), C.blue);
+    mk(t('stageSelect'), () => void this.afterAd(() => this.scene.start('LevelSelect')), C.slate);
   }
 
   // ---------- 메인 루프 ----------
@@ -857,7 +864,50 @@ export class GameScene extends Phaser.Scene implements World {
     this.updateHud();
     this.drawBars();
     if (this.paused || this.over || this.modal) return;
+    this.inFrame = true;                       // 이어하기 안내는 실제 화면 루프에서만 띄운다 (밸런스 시뮬레이션은 step 을 직접 부른다)
     this.step(Math.min(delta, 50) / 1000 * this.speed);
+    this.inFrame = false;
+  }
+
+  // ---------- 패배 후 이어하기 (보상형 광고) ----------
+  /** 생명이 0이 됐을 때 광고를 보고 이어할지 묻는다. 안내창을 띄웠으면 true (그동안 전투는 멈춘다) */
+  private tryRevive(): boolean {
+    if (!this.inFrame || this.reviveLeft <= 0 || this.modal || this.over) return false;
+    this.reviveLeft--;
+    this.modal = true;
+    void this.askRevive();
+    return true;
+  }
+
+  private async askRevive() {
+    const n = Math.max(1, Math.ceil(this.maxLives * REVIVE_LIVES_RATIO));
+    const wants = await new Promise<boolean>((resolve) => {
+      const m = modal(this, 600, 310, 3000, C.danger);
+      const ui = m.objects;
+      const close = (v: boolean) => { ui.forEach((o) => o.destroy()); resolve(v); };
+      const title = text(this, m.cx, m.cy - 100, t('reviveTitle'), 28, C.red).setDepth(3002);
+      const body = text(this, m.cx, m.cy - 20, t('reviveBody', { n }), 20, C.text, { weight: '500' })
+        .setDepth(3002).setWordWrapWidth(520).setAlign('center').setLineSpacing(8);
+      const yes = button(this, m.cx + 110, m.cy + 100, 210, 50, t('reviveBtn'), () => close(true), C.green, 18);
+      const no = button(this, m.cx - 110, m.cy + 100, 150, 50, t('reviveNo'), () => close(false), C.slate, 18);
+      yes.bg.setDepth(3002); no.bg.setDepth(3002);
+      ui.push(title, body, yes.bg, no.bg);
+    });
+    const ok = wants && await ads.show(this, 'revive');
+    this.modal = false;
+    if (ok) {
+      this.lives = n;
+      this.cameras.main.flash(300, 120, 255, 160);
+      this.floatText(GAME_W / 2, GAME_H / 2, `♥ ${n}`, '#9fe870');
+    } else {
+      this.finish(false);
+    }
+  }
+
+  /** 결과 화면에서 다른 화면으로 넘어가기 직전, 스테이지 사이 전면 광고 자리를 거친다 */
+  private async afterAd(go: () => void) {
+    await ads.interstitial(this);
+    go();
   }
 
   /** 한 틱 진행. 밸런스 시뮬레이션에서도 직접 호출한다. */
@@ -901,7 +951,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.walls = this.walls.filter((w) => !w.dead);
     this.projs = this.projs.filter((p) => !p.done);
 
-    if (this.lives <= 0) this.finish(false);
+    if (this.lives <= 0) { if (!this.tryRevive()) this.finish(false); }
     else if (this.waveIdx === this.level.waves.length - 1 && this.pending.length === 0 && this.enemies.length === 0) this.finish(true);
   }
 
