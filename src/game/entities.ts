@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { ENEMIES, EnemyDef, EnemyKind } from '../data/enemies';
 import { TOWERS, TowerKind, TowerLvl, SELL_RATIO } from '../data/towers';
 import { HEROES, HeroKind } from '../data/heroes';
+import { WALL_REACH, WallTier } from '../data/walls';
 import { PathData, Vec } from './path';
 import { texFor } from '../skin';
+import { play } from '../sound';
 
 /** 엔티티가 게임 상태에 접근하는 창구 */
 export interface World {
@@ -17,6 +19,9 @@ export interface World {
   /** 난이도에 따른 적 체력 배율 */
   readonly hpMul: number;
 }
+
+/** 적을 막아 세우는 것 (병사, 영웅, 벽) */
+export interface Blocker { x: number; y: number; dead: boolean; hurt(n: number): void }
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -58,7 +63,7 @@ export class Enemy {
   x: number;
   y: number;
   dead = false;
-  blocker: Soldier | null = null;
+  blocker: Blocker | null = null;
   private atk = 0.5;
   private flash = 0;
   private slowMul = 1;
@@ -103,6 +108,7 @@ export class Enemy {
   die(killed: boolean) {
     this.dead = true;
     this.shadow.destroy();
+    if (killed) play('die');
     if (killed) vanish(this.w, this.img, this.def.flying ? 28 : -6, (this.x % 2 < 1 ? 1 : -1) * (this.def.flying ? 50 : 24), this.def.flying ? 340 : 260);
     else vanish(this.w, this.img, 0, 0, 180);
     if (killed) this.w.gainGold(this.def.gold, this.x, this.y);
@@ -252,7 +258,8 @@ export class Soldier {
     if (!this.target) {
       let best: Enemy | null = null, bd = Infinity;
       for (const e of this.w.enemies) {
-        if (e.dead || e.def.flying || (e.blocker && !e.blocker.dead)) continue;
+        // 다른 병사가 이미 맡은 적은 건너뛴다. 벽에 막혀 있는 적은 병사가 가서 붙을 수 있다
+        if (e.dead || e.def.flying || (e.blocker instanceof Soldier && !e.blocker.dead)) continue;
         const dh = dist(e, this.home);
         if (dh > this.leash) continue;
         const ds = dist(e, this);
@@ -276,6 +283,7 @@ export class Soldier {
         const tg = this.target;
         this.swing = 0.22;
         this.swingDir = tg.x >= this.x ? 1 : -1;
+        play('hit');
         tg.hurt(this.dmg, false);
       }
     }
@@ -366,7 +374,10 @@ export class Tower {
   private pulse = 0;                // 공격할 때 살짝 튀는 연출의 남은 시간
   private baseScale = 1;
   private slots: { s: Soldier | null; respawn: number }[] = [];
-  private rally: Vec = { x: 0, y: 0 };
+  rally: Vec = { x: 0, y: 0 };      // 병영 집결지점 (병사 3명이 이 주변에서 대기)
+
+  /** 집결지점을 타워에서 얼마나 멀리 둘 수 있는지 */
+  static readonly RALLY_MAX = 150;
 
   constructor(private w: World, readonly kind: TowerKind, readonly pos: Vec, paths: PathData[]) {
     this.spent = TOWERS[kind].levels[0].cost;
@@ -432,6 +443,7 @@ export class Tower {
     this.cd = this.lv.cd;
     this.pulse = 0.16;
     const from = { x: this.pos.x, y: this.pos.y - 34 };
+    play(this.kind === 'archer' ? 'arrow' : this.kind === 'mage' ? 'magic' : this.kind === 'frost' ? 'frost' : this.kind === 'thunder' ? 'thunder' : 'cannon');
     if (this.kind === 'archer') this.w.projs.push(new Projectile(this.w, 'arrow', from.x, from.y, best, this.lv.dmg));
     else if (this.kind === 'mage') this.w.projs.push(new Projectile(this.w, 'orb', from.x, from.y - 6, best, this.lv.dmg));
     else if (this.kind === 'frost') {
@@ -469,18 +481,73 @@ export class Tower {
     this.w.gs.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
   }
 
+  /** i번째 병사가 서 있을 자리 (집결지점 주변에 나란히) */
+  private slotHome(i: number): Vec {
+    return { x: this.rally.x + (i - 1) * 18, y: this.rally.y + (i % 2 ? 8 : -8) };
+  }
+
+  /** 집결지점을 옮기고, 살아 있는 병사들을 새 자리로 보낸다. 타워에서 RALLY_MAX 안으로 보정한다 */
+  setRally(p: Vec) {
+    const dx = p.x - this.pos.x, dy = p.y - this.pos.y;
+    const d = Math.hypot(dx, dy);
+    const k = d > Tower.RALLY_MAX ? Tower.RALLY_MAX / d : 1;
+    this.rally = { x: this.pos.x + dx * k, y: this.pos.y + dy * k };
+    this.slots.forEach((sl, i) => { if (sl.s && !sl.s.dead) sl.s.home = this.slotHome(i); }); // 적과 너무 멀어지면 Soldier.update 가 알아서 교전을 풀고 이동
+  }
+
   private updateBarracks(dt: number) {
     this.slots.forEach((sl, i) => {
       if (sl.s && !sl.s.dead) return;
       sl.s = null;
       if ((sl.respawn -= dt) > 0) return;
-      const home = { x: this.rally.x + (i - 1) * 18, y: this.rally.y + (i % 2 ? 8 : -8) };
+      const home = this.slotHome(i);
       const s = new Soldier(this.w, home, this.lv.dmg, this.lv.soldierHp!, this.lv.range);
       s.x = this.pos.x; s.y = this.pos.y;
       this.w.soldiers.push(s);
       sl.s = s;
       sl.respawn = 10;
     });
+  }
+}
+
+/** 길 위에 세운 벽. 지상 적이 닿으면 멈춰서 벽을 공격하고, 체력이 다하면 부서진다. */
+export class Wall implements Blocker {
+  readonly img: Phaser.GameObjects.Image;
+  readonly maxHp: number;
+  hp: number;
+  dead = false;
+  private flash = 0;
+
+  constructor(private w: World, readonly pos: Vec, readonly tier: WallTier) {
+    this.hp = this.maxHp = tier.hp;
+    const tx = texFor(tier.tex);
+    this.img = w.gs.add.image(pos.x, pos.y, tx.key).setScale(tx.scale * 0.3).setDepth(pos.y - 1);
+    w.gs.tweens.add({ targets: this.img, scale: tx.scale, duration: 220, ease: 'Back.Out' });
+  }
+
+  get x() { return this.pos.x; }
+  get y() { return this.pos.y; }
+
+  hurt(n: number) {
+    this.hp -= n;
+    this.flash = 0.08;
+    if (this.hp <= 0 && !this.dead) this.kill();
+  }
+
+  kill() {
+    this.dead = true;
+    this.w.splashFx(this.pos.x, this.pos.y, 22, 0xd9c8a0);
+    vanish(this.w, this.img, 6, 0, 260);
+  }
+
+  update(dt: number) {
+    if (this.dead) return;
+    if (this.flash > 0) { this.flash -= dt; this.img.setTint(0xffb0b0); } else this.img.clearTint();
+    // 닿은 지상 적 중 아직 아무에게도 막히지 않은 적을 붙잡는다
+    for (const e of this.w.enemies) {
+      if (e.dead || e.def.flying || (e.blocker && !e.blocker.dead)) continue;
+      if (dist(e, this.pos) <= WALL_REACH) e.blocker = this;
+    }
   }
 }
 

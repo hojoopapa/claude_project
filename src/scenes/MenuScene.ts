@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
-import { button, text, C } from '../ui';
+import { button, soundButton, text, C } from '../ui';
 import { LANGS, langIndex, nextLang, t } from '../i18n';
 import { texFor } from '../skin';
 
@@ -28,6 +28,7 @@ export class MenuScene extends Phaser.Scene {
     button(this, GAME_W / 2, 500, 200, 40, t('ranking'), () => this.scene.start('Ranking'), C.slate, 16, { icon: 'ic_trophy', iconScale: 0.65, radius: 20 });
 
     // 오른쪽 위: 언어
+    soundButton(this, GAME_W - 182, 30, 44, 34);
     button(this, GAME_W - 82, 30, 134, 34, `${LANGS[langIndex()].name}`, () => { nextLang(); this.scene.restart(); }, C.slate, 14, { radius: 17 });
   }
 }

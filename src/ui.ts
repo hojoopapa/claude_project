@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { FONT } from './config';
+import { play, setSound, soundOn } from './sound';
 
 /** UI 색 팔레트. 어두운 남색 바탕에 금색 포인트, 동작별 색은 채도를 낮춘 톤으로 맞춘다. */
 export const C = {
@@ -137,7 +138,7 @@ export function button(
   c.setData('ui', true);
   c.on('pointerover', () => { hover = true; draw(); });
   c.on('pointerout', () => { hover = false; c.setScale(1); draw(); });
-  c.on('pointerdown', () => { if (!enabled) return; c.setScale(0.96); onClick(); });
+  c.on('pointerdown', () => { if (!enabled) return; c.setScale(0.96); play('click'); onClick(); });
   c.on('pointerup', () => c.setScale(1));
 
   return {
@@ -150,4 +151,13 @@ export function button(
     setCooldown(f) { const v = Math.max(0, Math.min(1, f)); if (Math.abs(v - cdFrac) > 0.004) { cdFrac = v; draw(); } },
     destroy() { c.destroy(); },
   };
+}
+
+/** 소리 켜기/끄기 버튼. 누를 때마다 설정이 저장되고 아이콘이 바뀐다 */
+export function soundButton(scene: Phaser.Scene, x: number, y: number, w = 40, h = 32): Btn {
+  const b: Btn = button(scene, x, y, w, h, '', () => {
+    setSound(!soundOn());
+    b.setIcon(soundOn() ? 'ic_sound' : 'ic_mute');
+  }, C.slate, 14, { icon: soundOn() ? 'ic_sound' : 'ic_mute', iconScale: 0.7, radius: 10 });
+  return b;
 }

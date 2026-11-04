@@ -92,6 +92,25 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xffffff).fillPoints([new Phaser.Math.Vector2(30, 8), new Phaser.Math.Vector2(40, 18), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40), new Phaser.Math.Vector2(8, 30)], true);
       g.fillStyle(0xffb347).fillPoints([new Phaser.Math.Vector2(8, 30), new Phaser.Math.Vector2(18, 40), new Phaser.Math.Vector2(8, 40)], true);
     });
+    // 스피커 몸통 (소리/음소거 공통)
+    const speaker = (g: Phaser.GameObjects.Graphics) => {
+      g.fillStyle(0xffffff).fillRect(7, 18, 8, 12).fillTriangle(15, 18, 27, 8, 27, 40).fillTriangle(15, 30, 27, 40, 27, 24).fillRect(15, 18, 12, 12);
+    };
+    tex(this, 'ic_sound', 48, 48, (g) => {
+      speaker(g);
+      g.lineStyle(3.5, 0xffffff, 1);
+      g.beginPath().arc(27, 24, 8, -Math.PI * 0.32, Math.PI * 0.32).strokePath();
+      g.beginPath().arc(27, 24, 15, -Math.PI * 0.32, Math.PI * 0.32).strokePath();
+    });
+    tex(this, 'ic_mute', 48, 48, (g) => {
+      speaker(g);
+      g.lineStyle(4, 0xff6b6b, 1).lineBetween(32, 17, 44, 31).lineBetween(44, 17, 32, 31);
+    });
+    tex(this, 'ic_flag', 48, 48, (g) => {
+      g.fillStyle(0xe8e0d0).fillRect(11, 5, 4, 38);
+      g.fillStyle(0xff5a4a).fillTriangle(15, 7, 41, 16, 15, 26);
+      g.fillStyle(0xffffff, 0.35).fillTriangle(15, 7, 28, 11.5, 15, 16);
+    });
     tex(this, 'ic_sell', 48, 48, (g) => {
       g.fillStyle(0xf6b82e).fillCircle(24, 24, 19);
       g.lineStyle(3, 0xd48a10, 1).strokeCircle(24, 24, 13);
@@ -99,8 +118,47 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  /** 벽 4종(나무, 흙, 벽돌, 금속). 48x32 크기의 가로로 긴 방벽 */
+  private makeWalls() {
+    const line = 0x1b1b1b;
+    tex(this, 'w_wood', 48, 32, (g) => {
+      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 44, 8);
+      g.fillStyle(0x9a6b3a).fillRect(3, 8, 42, 18);
+      g.fillStyle(0xb98550).fillRect(3, 8, 42, 5);
+      g.lineStyle(2, 0x5c3b1c).lineBetween(3, 14, 45, 14).lineBetween(3, 20, 45, 20).lineBetween(16, 8, 16, 26).lineBetween(32, 8, 32, 26);
+      g.lineStyle(2, line).strokeRect(3, 8, 42, 18);
+      g.fillStyle(0x7a5228).fillRect(7, 3, 6, 25).fillRect(35, 3, 6, 25);
+      g.lineStyle(2, line).strokeRect(7, 3, 6, 25).strokeRect(35, 3, 6, 25);
+    });
+    tex(this, 'w_dirt', 48, 32, (g) => {
+      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 44, 8);
+      g.fillStyle(0x7d5a3a).fillPoints([new Phaser.Math.Vector2(2, 27), new Phaser.Math.Vector2(8, 12), new Phaser.Math.Vector2(18, 6), new Phaser.Math.Vector2(30, 6), new Phaser.Math.Vector2(41, 12), new Phaser.Math.Vector2(46, 27)], true);
+      g.fillStyle(0x9a7550).fillPoints([new Phaser.Math.Vector2(10, 14), new Phaser.Math.Vector2(18, 8), new Phaser.Math.Vector2(30, 8), new Phaser.Math.Vector2(38, 14), new Phaser.Math.Vector2(24, 17)], true);
+      g.fillStyle(0x5e4129).fillCircle(14, 22, 3).fillCircle(30, 21, 4).fillCircle(38, 24, 2.5).fillCircle(22, 24, 2.5);
+      g.lineStyle(2, line).strokePoints([new Phaser.Math.Vector2(2, 27), new Phaser.Math.Vector2(8, 12), new Phaser.Math.Vector2(18, 6), new Phaser.Math.Vector2(30, 6), new Phaser.Math.Vector2(41, 12), new Phaser.Math.Vector2(46, 27)], false);
+    });
+    tex(this, 'w_brick', 48, 32, (g) => {
+      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 46, 8);
+      g.fillStyle(0xb5533c).fillRect(2, 6, 44, 21);
+      g.fillStyle(0xd0705a).fillRect(2, 6, 44, 4);
+      g.lineStyle(2, 0x6b2f22).lineBetween(2, 13, 46, 13).lineBetween(2, 20, 46, 20)
+        .lineBetween(14, 6, 14, 13).lineBetween(30, 6, 30, 13).lineBetween(8, 13, 8, 20).lineBetween(24, 13, 24, 20).lineBetween(40, 13, 40, 20)
+        .lineBetween(14, 20, 14, 27).lineBetween(30, 20, 30, 27);
+      g.lineStyle(2, line).strokeRect(2, 6, 44, 21);
+    });
+    tex(this, 'w_metal', 48, 32, (g) => {
+      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 46, 8);
+      g.fillStyle(0x7f8da0).fillRect(2, 5, 44, 22);
+      g.fillStyle(0xaab7c8).fillRect(2, 5, 44, 6);
+      g.lineStyle(2, 0x4a5568).lineBetween(2, 16, 46, 16).lineBetween(24, 5, 24, 27);
+      g.fillStyle(0xdfe8f2).fillCircle(7, 10, 1.8).fillCircle(41, 10, 1.8).fillCircle(7, 22, 1.8).fillCircle(41, 22, 1.8).fillCircle(20, 10, 1.8).fillCircle(28, 22, 1.8);
+      g.lineStyle(2.5, line).strokeRect(2, 5, 44, 22);
+    });
+  }
+
   private makeProceduralTextures() {
     this.makeIcons();
+    this.makeWalls();
     // --- 적 ---
     tex(this, 'e_goblin', 30, 30, (g) => {
       g.fillStyle(0x5da832).fillTriangle(2, 8, 10, 6, 8, 16).fillTriangle(28, 8, 20, 6, 22, 16);
