@@ -81,7 +81,9 @@ export class GameScene extends Phaser.Scene implements World {
   private selRally: Tower | null = null;                      // 집결지점을 고르는 중인 병영
   private rallyUi: Phaser.GameObjects.GameObject[] = [];       // 집결지점 선택 중 표시 (범위 원, 깃발)
   private rallyPickDown = -1;                                  // 깃발 버튼을 누른 포인터 다운 시각
-  private reviveLeft = 1;                                      // 이번 스테이지에서 남은 이어하기 횟수
+  private armedTip: string | null = null;                      // 터치로 설명을 본 건설 메뉴 버튼 (한 번 더 탭하면 실행)
+  private menuRefresh: (() => void)[] = [];                    // 메뉴 버튼들의 강조 표시 갱신 함수
+  private reviveLeft = 1;                                    // 이번 스테이지에서 남은 이어하기 횟수
   private inFrame = false;                                     // 실제 화면 루프(update) 안에서 step 이 불렸는지
   private walls: Wall[] = [];                                  // 지금 서 있는 벽
   private selWall = false;                                     // 벽을 놓을 자리를 고르는 중
@@ -117,6 +119,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.selRally = null; this.rallyUi = [];
     this.walls = []; this.selWall = false;
     this.reviveLeft = REVIVE_PER_STAGE; this.inFrame = false;
+    this.armedTip = null; this.menuRefresh = [];
   }
 
   create() {
@@ -453,6 +456,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.menu.forEach((o) => o.destroy());
     this.menu = [];
     this.tip = null;
+    this.armedTip = null; this.menuRefresh = [];
   }
 
   private clampCenter(x: number, y: number): Vec {
@@ -475,9 +479,22 @@ export class GameScene extends Phaser.Scene implements World {
     c.setInteractive(new Phaser.Geom.Circle(R, R, R), Phaser.Geom.Circle.Contains); // 컨테이너 히트 영역은 좌상단 기준 좌표
     c.input!.cursor = 'pointer';
     c.setData('ui', true);
-    c.on('pointerdown', () => cb());
+    // 터치에는 '마우스를 올리기'가 없어 설명(tip)을 볼 수 없다. 설명 창이 있는 메뉴(건설 메뉴)에서는
+    // 터치 첫 탭에서 설명을 보여주고, 같은 버튼을 한 번 더 탭하면 실행한다. 마우스는 그대로 (올리면 설명, 클릭하면 실행).
+    const armed = () => opts.tip !== undefined && this.armedTip === opts.tip;
+    const refresh = () => { draw(armed()); c.setScale(armed() ? 1.06 : 1); };
+    this.menuRefresh.push(refresh);
+    c.on('pointerdown', (p?: Phaser.Input.Pointer) => {
+      if (p?.wasTouch && this.tip && opts.tip !== undefined && !armed()) {
+        this.armedTip = opts.tip;
+        this.tip.setText(opts.tip);
+        this.menuRefresh.forEach((fn) => fn());     // 이전에 선택돼 있던 버튼의 강조는 푼다
+        return;
+      }
+      cb();
+    });
     c.on('pointerover', () => { draw(true); c.setScale(1.06); if (opts.tip !== undefined) this.tip?.setText(opts.tip); });
-    c.on('pointerout', () => { draw(false); c.setScale(1); if (opts.tip !== undefined) this.tip?.setText(''); });
+    c.on('pointerout', () => { refresh(); if (opts.tip !== undefined && !armed()) this.tip?.setText(''); });
     if (tex) { const ix = texFor(tex, 0); c.add(this.add.image(0, -7, ix.key).setScale(0.44 * ix.scale)); }
     else if (opts.icon) c.add(icon(this, opts.icon, 0, -7, 1.0));
     else c.add(text(this, 0, -8, label, 15, enabled ? C.dim : '#775f66'));
