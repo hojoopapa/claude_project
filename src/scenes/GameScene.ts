@@ -9,9 +9,10 @@ import { WALL_GAP, WALL_MAX, WALL_SNAP, wallFor } from '../data/walls';
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { hasSkinTexture, texFor } from '../skin';
-import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer, setPlayer } from '../save';
+import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer } from '../save';
 import { calcScore, fmt } from '../score';
-import { cleanName, rankingEnabled, submitScore } from '../ranking';
+import { NameTakenError, cleanName, rankingEnabled, submitScore } from '../ranking';
+import { askUniqueName } from '../nameDialog';
 import { promptText } from '../domDialog';
 import { DIFFICULTIES, Features, featuresFor, NORMAL_SPEED_STAGES, SPEEDS, SpeedTier, TUTORIAL_STAGES } from '../data/features';
 import { ads } from '../ads';
@@ -962,12 +963,15 @@ export class GameScene extends Phaser.Scene implements World {
         busy = true;
         try {
           if (!cleanName(getPlayer().name)) {
-            const v = await promptText({ title: t('nickname'), hint: t('nameHint'), value: '', maxLen: 12, ok: t('ok'), cancel: t('cancel'), filter: cleanName });
+            const v = await askUniqueName('');
             if (!v) { busy = false; return; }
-            setPlayer({ name: v });
           }
           const bs = getBestScore(this.level.id) ?? { score: sc.total, diff };
-          await submitScore(this.level.id, bs.score, bs.diff);
+          try { await submitScore(this.level.id, bs.score, bs.diff); } catch (e) {
+            // 예전에 정한 이름을 다른 사람이 먼저 가져갔다면 새 이름을 받아서 다시 올린다
+            if (!(e instanceof NameTakenError) || !(await askUniqueName(getPlayer().name, t('nameTaken')))) throw e;
+            await submitScore(this.level.id, bs.score, bs.diff);
+          }
           sb.setLabel(t('rankDone')); sb.setEnabled(false);
         } catch { sb.setLabel(t('rankFail')); busy = false; }
       }, C.orange, 'ic_trophy');

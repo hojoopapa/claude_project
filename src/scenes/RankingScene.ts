@@ -4,9 +4,10 @@ import { LEVELS } from '../data/levels';
 import { allBestScores, getPlayer, resetScores, setPlayer, totalScore } from '../save';
 import { button, confirmModal, text, icon, panel, C } from '../ui';
 import { t } from '../i18n';
-import { Entry, cleanName, cleanRoom, clearMine, fetchLevel, fetchTotals, rankingEnabled, submitAll } from '../ranking';
+import { Entry, NameTakenError, cleanName, cleanRoom, clearMine, fetchLevel, fetchTotals, rankingEnabled, submitAll } from '../ranking';
+import { askUniqueName } from '../nameDialog';
 import { promptText } from '../domDialog';
-import { fmt } from '../score';
+import { DEV_ID, fmt } from '../score';
 
 const DIFF_DOT = [0x2fb872, 0x3b78e0, 0xd9484f];
 const MEDAL = [0xffd36b, 0xc9d3e3, 0xd9945a];
@@ -85,12 +86,22 @@ export class RankingScene extends Phaser.Scene {
 
     // 아래: 닉네임, 방 코드, 내 기록 모두 등록
     const p = getPlayer();
-    button(this, 235, 486, 230, 38, `${t('nickname')}: ${p.name || '-'}`, () => void this.editName(), C.slate, 14, { icon: 'ic_edit', iconScale: 0.5, radius: 14 });
+    const nameBtn = button(this, 235, 486, 230, 38, `${t('nickname')}: ${p.name || '-'}`, () => void this.editName(), C.slate, 14, { icon: 'ic_edit', iconScale: 0.5, radius: 14 });
     button(this, 470, 486, 200, 38, `${t('room')}: ${p.room}`, () => void this.editRoom(), C.slate, 14, { icon: 'ic_edit', iconScale: 0.5, radius: 14 });
     const all = button(this, 725, 486, 240, 38, t('rankAll'), async () => {
       if (!(await this.ensureName())) return;
       all.setEnabled(false);
-      try { await submitAll(); all.setLabel(t('rankDone')); void this.loadTab(); } catch { all.setLabel(t('rankFail')); all.setEnabled(true); }
+      const run = async (): Promise<void> => {
+        try { await submitAll(); all.setLabel(t('rankDone')); void this.loadTab(); } catch (e) {
+          // 예전에 정한 이름을 다른 사람이 먼저 가져갔다면 새 이름을 받아서 다시 올린다
+          if (e instanceof NameTakenError) {
+            const v = await askUniqueName(getPlayer().name, t('nameTaken'));
+            if (v) { nameBtn.setLabel(`${t('nickname')}: ${v}`); return run(); }
+          }
+          all.setLabel(t('rankFail')); all.setEnabled(true);
+        }
+      };
+      await run();
     }, C.orange, 14, { radius: 14 });
   }
 
@@ -130,7 +141,9 @@ export class RankingScene extends Phaser.Scene {
       if (i < 3) g.fillStyle(MEDAL[i], 1).fillCircle(150, y, 11);
       this.list.push(g);
       this.list.push(text(this, 150, y, `${i + 1}`, 14, i < 3 ? '#1a1030' : C.dim, { shadow: false }));
-      const nm = text(this, 184, y, e.name + (isMe ? `  (${t('youMark')})` : ''), 16, isMe ? C.gold : C.text).setOrigin(0, 0.5);
+      // 고정 기록인 개발자는 보는 사람의 언어로 이름을 보여준다
+      const shown = e.id === DEV_ID ? t('devName') : e.name;
+      const nm = text(this, 184, y, shown + (isMe ? `  (${t('youMark')})` : ''), 16, isMe ? C.gold : C.text).setOrigin(0, 0.5);
       this.list.push(nm);
       if (total) this.list.push(text(this, 620, y, `${e.n ?? 0}/${LEVELS.length}`, 13, C.dim, { weight: '500' }));
       else this.list.push(this.add.circle(640, y, 5, DIFF_DOT[e.diff] ?? DIFF_DOT[1]));
@@ -144,9 +157,8 @@ export class RankingScene extends Phaser.Scene {
   }
 
   private async editName(): Promise<boolean> {
-    const v = await promptText({ title: t('nickname'), hint: t('nameHint'), value: getPlayer().name, maxLen: 12, ok: t('ok'), cancel: t('cancel'), filter: cleanName });
+    const v = await askUniqueName(getPlayer().name);
     if (!v) return false;
-    setPlayer({ name: v });
     this.scene.restart({ level: this.tab });
     return true;
   }

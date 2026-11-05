@@ -21,10 +21,12 @@ export interface EnemyDef {
    * every 초마다 range 안의 목표를 골라 예고 후 radius 반경에 브레스를 쏜다 (first 는 첫 브레스까지의 시간).
    */
   breath?: { stomp: number; every: number; first: number; radius: number; range: number };
+  /** 프레임 그림이 있으면 걸을 때는 walk 두 장을 번갈아, 막혀서 싸울 때는 atk[0]=준비, atk[1]=찌르기를 쓴다 */
+  frames?: { walk: readonly [string, string]; atk: readonly [string, string] };
 }
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
-  goblin: { name: '고블린', hp: 40, speed: 55, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 4, tex: 'e_goblin', scale: 1, anim: 'walk' },
+  goblin: { name: '고블린', hp: 40, speed: 55, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 4, tex: 'e_goblin', scale: 1, anim: 'walk', frames: { walk: ['e_goblin_walk1', 'e_goblin_walk2'], atk: ['e_goblin_stab1', 'e_goblin_stab2'] } },
   wolf: { name: '늑대', hp: 32, speed: 100, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 5, tex: 'e_wolf', scale: 1, anim: 'walk' },
   orc: { name: '오크', hp: 170, speed: 40, armor: 0.45, mr: 0, gold: 10, lives: 2, flying: false, dmg: 9, tex: 'e_orc', scale: 1, anim: 'walk' },
   wisp: { name: '도깨비불', hp: 70, speed: 70, armor: 0, mr: 0.5, gold: 7, lives: 1, flying: true, dmg: 0, tex: 'e_wisp', scale: 1, anim: 'float' },

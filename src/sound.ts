@@ -8,7 +8,7 @@ export type Sfx =
   | 'click' | 'build' | 'upgrade' | 'sell' | 'rally'
   | 'arrow' | 'magic' | 'cannon' | 'thunder' | 'frost'
   | 'hit' | 'die' | 'coin' | 'leak' | 'wave'
-  | 'fire' | 'reinf' | 'hero' | 'win' | 'lose' | 'boss' | 'breath' | 'smash';
+  | 'fire' | 'reinf' | 'hero' | 'win' | 'lose' | 'boss' | 'breath' | 'smash' | 'taunt';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -99,7 +99,7 @@ const GAP: Record<Sfx, number> = {
   click: 0.05, build: 0.1, upgrade: 0.1, sell: 0.1, rally: 0.1,
   arrow: 0.07, magic: 0.08, cannon: 0.1, thunder: 0.12, frost: 0.1,
   hit: 0.06, die: 0.05, coin: 0.06, leak: 0.2, wave: 0.5,
-  fire: 0.1, reinf: 0.2, hero: 0.2, win: 1, lose: 1, boss: 3, breath: 0.5, smash: 0.12,
+  fire: 0.1, reinf: 0.2, hero: 0.2, win: 1, lose: 1, boss: 3, breath: 0.5, smash: 0.12, taunt: 2,
 };
 
 export function play(name: Sfx): void {
@@ -163,6 +163,15 @@ export function play(name: Sfx): void {
       noise(c, t0, 1.0, 0.45, 80, 1800);
       tone(c, t0, 95, 1.0, 'sawtooth', 0.38, 40);
       tone(c, t0 + 0.05, 140, 0.8, 'square', 0.14, 60);
+      break;
+    case 'taunt':
+      // 낮게 깔리는 비웃음: 포효 한 번, 이어서 "크하하하" 하고 음이 내려가는 웃음 네 번
+      swell(c, t0, 70, 1.6, 'sawtooth', 0.22);
+      noise(c, t0, 0.4, 0.3, 80, 1500);
+      for (let i = 0; i < 4; i++) {
+        tone(c, t0 + 0.35 + i * 0.3, 230 - i * 22, 0.24, 'sawtooth', 0.24, 150 - i * 14);
+        tone(c, t0 + 0.35 + i * 0.3, 232 - i * 22, 0.24, 'square', 0.08, 148 - i * 14);
+      }
       break;
     case 'smash':
       noise(c, t0, 0.25, 0.4, 100, 1500);

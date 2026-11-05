@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { markSkinTexture, queueSkin, SkinIndex } from '../skin';
+import { markSkinTexture, PNG_FRAMES, queueSkin, SkinIndex } from '../skin';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -26,12 +26,14 @@ export class BootScene extends Phaser.Scene {
   preload() {
     const base = import.meta.env.BASE_URL;
     this.load.json('skin-svg', `${base}skins/svg/index.json`);
+    for (const k of PNG_FRAMES) this.load.image(k, `${base}skins/png/${k}.png`);
   }
 
   create() {
     const index = this.cache.json.exists('skin-svg') ? (this.cache.json.get('skin-svg') as SkinIndex) : undefined;
     const finish = () => {
       for (const k of Object.keys(index ?? {})) if (this.textures.exists(k)) markSkinTexture(k);
+      for (const k of PNG_FRAMES) if (this.textures.exists(k)) markSkinTexture(k);
       this.makeProceduralTextures();
       this.scene.start('Menu');
     };

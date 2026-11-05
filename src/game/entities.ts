@@ -4,7 +4,7 @@ import { TOWERS, TowerKind, TowerLvl, SELL_RATIO } from '../data/towers';
 import { HEROES, HeroKind } from '../data/heroes';
 import { WALL_REACH, WallTier } from '../data/walls';
 import { PathData, Vec } from './path';
-import { texFor } from '../skin';
+import { hasSkinTexture, texFor } from '../skin';
 import { play } from '../sound';
 
 /** 엔티티가 게임 상태에 접근하는 창구 */
@@ -117,6 +117,19 @@ export class Enemy {
     if (killed) this.w.gainGold(this.def.gold, this.x, this.y);
   }
 
+  /**
+   * 프레임 그림 고르기: 걷는 중이면 두 장을 0.22초마다 번갈아, 막혀서 싸우는 중이면 준비(공격1)와 찌르기(공격2).
+   * 그림이 없으면 false 를 돌려주고 기존 그림을 그대로 쓴다.
+   */
+  private pickFrame(moving: boolean): boolean {
+    const fr = this.def.frames;
+    if (!fr || !hasSkinTexture(fr.walk[0])) return false;
+    const engaged = !!this.blocker && !this.blocker.dead && dist(this.blocker, this) < 30;
+    const key = engaged ? (this.swing > 0 ? fr.atk[1] : fr.atk[0]) : fr.walk[moving ? Math.floor(this.anim / 0.22) % 2 : 0];
+    if (this.img.texture.key !== key) this.img.setTexture(key);
+    return true;
+  }
+
   /** 현재 자세(걷기/날갯짓/둥실)를 이미지와 그림자에 반영 */
   private applyPose(moving: boolean) {
     const t = this.anim, def = this.def;
@@ -129,6 +142,9 @@ export class Enemy {
     } else p = walkPose(def.anim === 'heavy', t, def.speed, moving);
     const k = 1 + Math.max(0, this.pop) * 0.7;
     const air = def.flying ? -20 : 0;
+    // 프레임 그림이 있으면 걷기/공격 장면을 골라 바꾼다. 그림 자체가 움직임을 담고 있어서 통통 튀는 정도는 줄인다
+    const framed = this.pickFrame(moving);
+    if (framed) { p.dy *= 0.6; p.rot *= 0.4; }
     this.img
       .setPosition(this.x + lungeOf(this.swing, this.swingDir), this.y + air + p.dy)
       .setRotation(this.stunT > 0 ? Math.sin(t * 22) * 0.18 : p.rot)
