@@ -51,6 +51,8 @@ const BOSS_KINDS = new Set<EnemyKind>(['ogre', 'drake']);
 const BOSS_INTRO = 4;
 /** 용의 브레스: 목표를 찍어 두고 터지기까지의 예고 시간(게임 시계 기준 초) */
 const BREATH_DELAY = 1.1;
+/** 브레스나 발밑에 맞은 타워가 불타며 멈추는 시간(초). 타워는 부서지지 않는다 */
+const TOWER_BURN_SECONDS = 1;
 
 /** 패배 후 광고를 보고 이어할 때: 스테이지당 횟수, 되살아나는 생명 비율(최대 생명 기준) */
 const REVIVE_PER_STAGE = 1, REVIVE_LIVES_RATIO = 0.5;
@@ -208,12 +210,12 @@ export class GameScene extends Phaser.Scene implements World {
     if (tgt) this.startBreath(e, tgt, b.radius);
   }
 
-  /** 반경 안의 타워, 병사, 영웅, 벽을 모두 부순다 (타워는 환불 없이 빈 터로 돌아간다) */
+  /** 반경 안의 타워는 불태워 잠깐 멈추게 하고(부수지 않는다), 병사, 영웅, 벽은 부순다 */
   private smashAt(x: number, y: number, r: number) {
     let hit = false;
     for (const tw of [...this.towers]) {
       if (Math.hypot(tw.pos.x - x, tw.pos.y - y) > r) continue;
-      this.destroyTower(tw); hit = true;
+      if (tw.ignite(TOWER_BURN_SECONDS)) hit = true;
     }
     for (const s of this.soldiers) {
       if (s.dead || Math.hypot(s.x - x, s.y - y) > r) continue;
@@ -224,16 +226,6 @@ export class GameScene extends Phaser.Scene implements World {
       w.kill(); hit = true;
     }
     if (hit) { play('smash'); this.cameras.main.shake(160, 0.005); }
-  }
-
-  private destroyTower(tw: Tower) {
-    const spot = this.spots.find((s) => s.tower === tw);
-    this.splashFx(tw.pos.x, tw.pos.y - 10, 34, 0xff6a1a);
-    tw.destroy();
-    this.towers.splice(this.towers.indexOf(tw), 1);
-    if (spot) { spot.tower = null; spot.img.setVisible(true).setInteractive(); }
-    if (this.selRally === tw) this.cancelRally();
-    this.closeMenu();
   }
 
   /** 브레스 목표: 사거리 안에서 가장 가까운 타워, 없으면 가장 가까운 병사/영웅/벽 */
@@ -252,6 +244,7 @@ export class GameScene extends Phaser.Scene implements World {
     const warn = this.add.circle(tgt.x, tgt.y, r, 0xff3a1a, 0.2).setStrokeStyle(3, 0xff6a3a, 0.9).setDepth(930);
     this.tweens.add({ targets: warn, alpha: { from: 0.35, to: 1 }, yoyo: true, repeat: -1, duration: 220 });
     const label = text(this, tgt.x, tgt.y - r - 12, t('breathWarn'), 16, '#ff9a6a', { stroke: 4 }).setDepth(960);
+    e.chargeT = BREATH_DELAY;           // 예고 동안 용이 볼을 부풀린다
     this.blasts.push({ t: this.clock + BREATH_DELAY, x: tgt.x, y: tgt.y, r, from: e.mouth(), warn: [warn, label] });
   }
 

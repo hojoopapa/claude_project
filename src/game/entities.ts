@@ -67,6 +67,8 @@ export class Enemy {
   dead = false;
   blocker: Blocker | null = null;
   breathT = NaN;                  // 다음 브레스까지 남은 시간 (breath 가 있는 보스만 씀)
+  chargeT = 0;                    // 브레스를 모으는 중인 남은 시간 (이 동안 sprite.alt 그림을 쓴다)
+  hurtT = 0;                      // 맞은 뒤 놀란 표정을 유지하는 남은 시간 (frames.hurt 가 있는 적)
   facing: 1 | -1 = 1;             // 가는 방향 (1 = 오른쪽)
   private atk = 0.5;
   private flash = 0;
@@ -100,7 +102,7 @@ export class Enemy {
   /** 입 위치. 용이 브레스를 쏘는 곳 */
   mouth(): Vec {
     const sp = this.def.sprite;
-    return sp ? { x: this.x + this.facing * sp.width * 0.4, y: this.y - 20 } : { x: this.x + this.facing * 24, y: this.y - 44 };
+    return sp ? { x: this.x + this.facing * sp.width * 0.38, y: this.y - 14 } : { x: this.x + this.facing * 24, y: this.y - 44 };
   }
 
   hurt(amount: number, magic: boolean) {
@@ -108,6 +110,7 @@ export class Enemy {
     this.hp -= amount * (1 - reduce);
     this.flash = 0.08;
     this.pop = 0.12;
+    this.hurtT = 0.35;
     this.img.setTint(0xff8080);
     if (this.hp <= 0 && !this.dead) this.die(true);
   }
@@ -136,7 +139,9 @@ export class Enemy {
     const fr = this.def.frames;
     if (!fr || !hasSkinTexture(fr.walk[0])) return false;
     const engaged = !!this.blocker && !this.blocker.dead && dist(this.blocker, this) < 30;
-    const key = engaged ? (this.swing > 0 ? fr.atk[1] : fr.atk[0]) : fr.walk[moving ? Math.floor(this.anim / 0.22) % 2 : 0];
+    const key = fr.hurt && this.hurtT > 0 && hasSkinTexture(fr.hurt) ? fr.hurt
+      : engaged ? (this.swing > 0 ? fr.atk[1] : fr.atk[0])
+      : fr.walk[moving ? Math.floor(this.anim / 0.22) % 2 : 0];
     if (this.img.texture.key !== key) this.img.setTexture(key);
     return true;
   }
@@ -153,6 +158,12 @@ export class Enemy {
     } else p = walkPose(def.anim === 'heavy', t, def.speed, moving);
     const k = 1 + Math.max(0, this.pop) * 0.7;
     const air = def.flying ? -20 : 0;
+    // 용: 브레스를 모으는 동안은 볼을 부풀린 그림으로 바꾼다
+    const sp = def.sprite;
+    if (sp?.alt && hasSkinTexture(sp.alt)) {
+      const key = this.chargeT > 0 ? sp.alt : sp.key;
+      if (this.img.texture.key !== key) this.img.setTexture(key);
+    }
     // 프레임 그림이 있으면 걷기/공격 장면을 골라 바꾼다. 그림 자체가 움직임을 담고 있어서 통통 튀는 정도는 줄인다
     const framed = this.pickFrame(moving);
     if (framed) { p.dy *= 0.6; p.rot *= 0.4; }
@@ -169,6 +180,8 @@ export class Enemy {
     this.anim += dt;
     if (this.swing > 0) this.swing -= dt;
     if (this.pop > 0) this.pop -= dt;
+    if (this.chargeT > 0) this.chargeT -= dt;
+    if (this.hurtT > 0) this.hurtT -= dt;
     if (this.born < 0.3) { this.born += dt; const a = Math.min(1, this.born / 0.3); this.img.setAlpha(a); this.shadow.setAlpha(a); }
     if (this.flash > 0) this.flash -= dt;
     if (this.slowT > 0 && (this.slowT -= dt) <= 0) this.slowMul = 1;
@@ -233,6 +246,8 @@ export class Soldier {
   protected pop = 0;
   private born = 0;
   private base: number;
+  private idleKey: string;
+  protected atkTex: string | null = null;     // 공격하는 순간에 바꿔 쓰는 그림 (영웅 기사)
   private shadow: Phaser.GameObjects.Ellipse;
 
   constructor(
@@ -243,6 +258,7 @@ export class Soldier {
     this.x = home.x; this.y = home.y;
     const tx = texFor(tex);
     this.base = tx.scale;
+    this.idleKey = tx.key;
     this.img = w.gs.add.image(this.x, this.y, tx.key).setScale(tx.scale).setAlpha(0);
     this.shadow = makeShadow(w, this.img).setAlpha(0);
   }
@@ -272,6 +288,10 @@ export class Soldier {
   protected applyPose(moving: boolean) {
     const p = walkPose(false, this.anim, 55, moving);
     const k = 1 + Math.max(0, this.pop) * 0.7;
+    if (this.atkTex) {                      // 칼을 휘두르는 동안(swing)은 공격 그림, 아니면 평소 그림
+      const key = this.swing > 0 ? this.atkTex : this.idleKey;
+      if (this.img.texture.key !== key) this.img.setTexture(key);
+    }
     this.img
       .setPosition(this.x + lungeOf(this.swing, this.swingDir), this.y + p.dy)
       .setRotation(p.rot)
@@ -404,6 +424,9 @@ export class Tower {
   level = 0;
   spent: number;
   private cd = 0;
+  private stunT = 0;               // 불타는 동안 남은 시간 (이 동안은 공격도, 병사 보충도 멈춘다)
+  private fire: Phaser.GameObjects.Image | null = null;
+  private fireT = 0;
   private age = 0;                 // 지은 뒤/올린 뒤 시간 (튀어오르는 연출)
   private pulse = 0;                // 공격할 때 살짝 튀는 연출의 남은 시간
   private baseScale = 1;
@@ -446,7 +469,35 @@ export class Tower {
     }
   }
 
+  /**
+   * 불을 붙인다 (용의 브레스). sec 초 동안 불타며 멈춘다. 이미 불타는 중이면 아무것도 하지 않고 false 를 돌려준다.
+   * 타워는 부서지지 않는다.
+   */
+  ignite(sec: number): boolean {
+    if (this.stunT > 0) return false;
+    this.stunT = sec;
+    this.w.splashFx(this.pos.x, this.pos.y - 24, 30, 0xff7a1a);
+    return true;
+  }
+
+  /** 불타는 동안: 주황빛으로 물들고, 위에서 불꽃이 일렁인다 */
+  private burn(dt: number) {
+    if (!this.fire) {
+      this.fire = this.w.gs.add.image(this.pos.x, this.pos.y - 30, 'breath_flame').setRotation(-Math.PI / 2).setDepth(this.pos.y + 2);
+      this.img.setTint(0xff9a55);
+    }
+    this.fireT += dt;
+    const base = 40 / this.fire.width;
+    this.fire.setScale(base * (1 + 0.18 * Math.sin(this.fireT * 22)), base * (1 + 0.22 * Math.sin(this.fireT * 17 + 1)));
+  }
+
+  private extinguish() {
+    this.fire?.destroy(); this.fire = null;
+    this.img.clearTint();
+  }
+
   destroy() {
+    this.fire?.destroy(); this.fire = null;
     this.img.destroy();
     for (const sl of this.slots) if (sl.s && !sl.s.dead) sl.s.kill();
   }
@@ -462,6 +513,8 @@ export class Tower {
 
   update(dt: number) {
     this.animate(dt);
+    if (this.stunT > 0) { this.stunT -= dt; this.burn(dt); return; }   // 불타는 동안 멈춘다
+    if (this.fire) this.extinguish();
     if (this.kind === 'barracks') { this.updateBarracks(dt); return; }
     this.cd -= dt;
     if (this.cd > 0) return;
@@ -593,6 +646,7 @@ export class Hero extends Soldier {
   constructor(w: World, kind: HeroKind, home: Vec) {
     const d = HEROES[kind];
     super(w, home, d.dmg, d.hp, d.range, Infinity, d.tex);
+    if (d.atkTex && hasSkinTexture(d.atkTex)) this.atkTex = d.atkTex;
     this.kind = kind;
     this.atkCd = d.cd;
   }

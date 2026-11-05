@@ -29,6 +29,7 @@ const PX = 150, PY = 70, PW = 660, PH = 400;
  */
 export class TauntScene extends Phaser.Scene {
   private level = 1;
+  private art = false;                 // 새 용 그림(dragon_idle/dragon_prep)을 쓰는지
   private leaving = false;
   private adBusy = false;
   private dragon!: Phaser.GameObjects.Image;
@@ -65,10 +66,10 @@ export class TauntScene extends Phaser.Scene {
       this.tweens.add({ targets: e, y: PY - 10, x: e.x + Phaser.Math.Between(-40, 40), duration: Phaser.Math.Between(1800, 3200), delay: Phaser.Math.Between(0, 1500), repeat: -1 });
     }
 
-    // 붉은 용: 상자 왼쪽 밖에서 날아 들어온다. 시작 화면 그림에서 오려낸 용(왼쪽을 보고 있어 뒤집는다), 없으면 기존 비룡
-    const fromArt = this.textures.exists('taunt_dragon');
-    this.dragon = this.add.image(PX - 120, PY + 230, fromArt ? 'taunt_dragon' : texFor('e_drake').key).setFlipX(fromArt).setMask(mask).setDepth(10);
-    this.base = 230 / this.dragon.width;
+    // 붉은 용: 상자 왼쪽 밖에서 날아 들어온다. 용 그림 두 컷(대기, 볼 부풀림)을 쓰고, 없으면 기존 비룡 그림
+    this.art = this.textures.exists('dragon_idle') && this.textures.exists('dragon_prep');
+    this.dragon = this.add.image(PX - 120, PY + 230, this.art ? 'dragon_idle' : texFor('e_drake').key).setMask(mask).setDepth(10);
+    this.base = (this.art ? 250 : 360) / this.dragon.width;
     this.dragon.setScale(this.base);
     this.tweens.add({ targets: this.dragon, x: PX + 170, duration: 700, ease: 'Cubic.Out', onComplete: () => this.sneer() });
 
@@ -87,6 +88,7 @@ export class TauntScene extends Phaser.Scene {
     this.dragon.setScale(this.base, this.base * (1 + Math.sin(this.clock * 11) * 0.05));
     const cy = PY + 230;
     if (this.laughing) {
+      if (this.art) this.dragon.setTexture(Math.floor(this.clock * 6) % 2 ? 'dragon_prep' : 'dragon_idle');   // 크하하: 볼을 부풀렸다 풀었다
       this.dragon.setAngle(Math.sin(this.clock * 26) * 6);
       this.dragon.y = cy + Math.sin(this.clock * 26) * 7;
     } else this.dragon.y = cy + Math.sin(this.clock * 4) * 5;

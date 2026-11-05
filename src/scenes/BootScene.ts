@@ -27,9 +27,8 @@ export class BootScene extends Phaser.Scene {
     const base = import.meta.env.BASE_URL;
     this.load.json('skin-svg', `${base}skins/svg/index.json`);
     for (const k of [...PNG_FRAMES, ...PNG_REPLACE]) this.load.image(k, `${base}skins/png/${k}.png`);
-    // 시작 화면 배경(글자와 버튼은 지운 그림)과 약올리는 용 (scripts/prepare-start-art.py 로 만든다)
+    // 시작 화면 배경(글자와 버튼은 지운 그림)과 브레스 불꽃 (scripts/prepare-start-art.py 로 만든다)
     this.load.image('start_bg', `${base}skins/png/start_bg.jpg`);
-    this.load.image('taunt_dragon', `${base}skins/png/taunt_dragon.png`);
     this.load.image('breath_flame', `${base}skins/png/breath_flame.png`);   // 용의 브레스 불꽃
   }
 

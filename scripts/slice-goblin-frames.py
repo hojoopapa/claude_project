@@ -17,7 +17,7 @@ from sprite_tools import despill, dilate, keyed_alpha, largest_component   # noq
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', 'docs', 'art', 'source', 'goblin_1.png')
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(__file__), '..', 'public', 'skins', 'png')
 NAMES = ['e_goblin_walk1', 'e_goblin_walk2', 'e_goblin_stab1', 'e_goblin_stab2']   # 왼쪽 위, 오른쪽 위, 왼쪽 아래, 오른쪽 아래
-BODY_H = 72        # 걷기1 프레임에서 몸 높이(2배 해상도 기준). 화면에서는 36px (늑대 44x32, 오크 44x44 같은 벡터 적과 비슷한 크기)
+BODY_H = 48        # 걷기1 프레임에서 몸 높이(2배 해상도 기준). 화면에서는 24px (병사 26x30 보다 약간 작게)
 PAD = 8
 
 

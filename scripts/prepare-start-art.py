@@ -4,15 +4,13 @@
   python scripts/prepare-start-art.py [원본.png] [출력폴더]
 
 1) start_bg.jpg   : 그림 속에 박혀 있는 제목, 버튼, 소리/언어 버튼을 주변 색으로 지운 배경 (UI 는 게임이 직접 그린다)
-2) taunt_dragon.png : 오른쪽 아래 붉은 용을 배경에서 오려낸 투명 PNG (약올림 팝업과 20번 보스 용, 왼쪽을 보고 있다)
-3) h_knight.png   : 가운데의 기사. 성벽과 마법탑에 겹쳐 서 있어서 윤곽선으로 둘러싸인 칸 중 KNIGHT_POLY 안에 든 칸만 골라 오린다
-4) breath_flame.png : 용 옆의 불꽃 (브레스 연출용)
+2) breath_flame.png : 용 옆의 불꽃 (브레스 연출용)
+(용과 기사는 새로 받은 시트 용.png 를 쓰므로 여기서는 뽑지 않는다: scripts/slice-dragon-knight.py)
 
 원본 오른쪽 아래의 흰색 반짝이 로고(반투명 흰 별)는 용 꼬리 윤곽선에 걸려 있어서, 덧씌움을 거꾸로 풀어 지운다 (remove_sparkle).
 원본 이미지를 바꾸면 아래 REGIONS, DRAGON_BOX 와 remove_sparkle 의 좌표를 확인한다 (원본 2752x1536 기준 픽셀).
 """
 import os, sys
-from collections import deque
 import numpy as np
 from PIL import Image, ImageFilter
 
@@ -26,14 +24,8 @@ REGIONS = {
     'buttons': (1040, 1156, 1710, 1510),        # "게임 시작" + "랭킹" (빛번짐 일부는 남겨서 게임이 그리는 버튼의 빛처럼 보이게 한다)
     'top_buttons': (2236, 16, 2728, 166),      # 소리, 언어 버튼
 }
-DRAGON_BOX = (2040, 850, 2752, 1536)           # 용이 들어 있는 영역
-KNIGHT_BOX = (1380, 680, 1920, 1190)            # 기사가 들어 있는 영역 (원본 픽셀)
-# 기사 윤곽을 크롭 좌표로 대충 둘러싼 다각형 (여유 약 10px). 성벽과 탑 쪽은 들어가지 않게 잡는다.
-KNIGHT_POLY = [(56,122),(118,130),(214,258),(232,266),(214,230),(208,180),(222,130),(252,96),(300,80),(326,36),(376,30),(436,78),(470,140),(462,172),(418,164),(408,190),(412,228),(424,252),(452,262),(474,298),(474,360),(496,408),(490,430),(430,442),(402,468),(396,490),(300,486),(214,490),(204,470),(190,426),(198,392),(226,356),(218,376),(200,372),(170,372),(150,332),(112,262),(56,142)]
-KNIGHT_H = 112                                 # 기사 키 (2배 해상도 기준, 화면에서는 56px)
 FLAME_BOX = (1930, 1110, 2160, 1340)           # 불꽃이 들어 있는 영역
 FLAME_W = 160                                  # 불꽃 폭 (2배 해상도 기준)
-DRAGON_MAX_W = 640                             # 용 그림 최대 폭 (화면에서는 약 360px 로 쓰므로 2배 해상도 이상)
 BG_SIZE = (1920, 1072)                         # 화면 960x540 의 2배 해상도 (원본 비율 유지)
 
 
@@ -116,25 +108,6 @@ def remove_sparkle(img: np.ndarray, cx=2640.0, cy=1423.75, a=52.0, alpha=0.52, s
     return out
 
 
-def components_from_border(free: np.ndarray) -> np.ndarray:
-    """free(True=빈 곳)가 가장자리에서 이어진 부분을 돌려준다 (4방향 BFS)."""
-    h, w = free.shape
-    seen = np.zeros_like(free, dtype=bool)
-    dq = deque()
-    for x in range(w):
-        for y in (0, h - 1):
-            if free[y, x] and not seen[y, x]: seen[y, x] = True; dq.append((y, x))
-    for y in range(h):
-        for x in (0, w - 1):
-            if free[y, x] and not seen[y, x]: seen[y, x] = True; dq.append((y, x))
-    while dq:
-        y, x = dq.popleft()
-        for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-            if 0 <= ny < h and 0 <= nx < w and free[ny, nx] and not seen[ny, nx]:
-                seen[ny, nx] = True; dq.append((ny, nx))
-    return seen
-
-
 def largest(mask: np.ndarray) -> np.ndarray:
     h, w = mask.shape
     seen = np.zeros_like(mask, dtype=bool)
@@ -170,46 +143,6 @@ def dilate(mask: np.ndarray, n=1) -> np.ndarray:
     return out
 
 
-def cut_knight(img: np.ndarray):
-    """
-    윤곽선(짙은 갈색)으로 둘러싸인 칸들로 나눈 뒤, 칸 넓이의 60% 이상이 KNIGHT_POLY 안에 든 칸만 기사로 고른다.
-    뒤의 성벽, 탑은 윤곽선 일부가 기사에 가려져 있어서 '둘러싸인 칸'으로 잡히지만, 넓이 대부분이 다각형 밖이라 걸러진다.
-    기사의 바깥 윤곽선은 고른 칸에서 8px 안의 짙은 픽셀을 붙여서 살린다.
-    """
-    from PIL import ImageDraw
-    x0, y0, x1, y1 = KNIGHT_BOX
-    crop = img[y0:y1, x0:x1].astype(np.int16)
-    H, W = crop.shape[:2]
-    pm = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(pm).polygon(KNIGHT_POLY, fill=255)
-    inpoly = np.array(pm) > 0
-    dark = crop.max(axis=2) < 105
-    barrier = dilate(dark, 1)
-    free = ~barrier
-    lab = np.zeros((H, W), np.int32)
-    sizes, touch, n = {}, set(), 0
-    for sy in range(H):
-        for sx in range(W):
-            if free[sy, sx] and lab[sy, sx] == 0:
-                n += 1
-                dq = deque([(sy, sx)]); lab[sy, sx] = n; cnt = 0; border = False
-                while dq:
-                    y, x = dq.popleft(); cnt += 1
-                    if y in (0, H - 1) or x in (0, W - 1): border = True
-                    for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-                        if 0 <= ny < H and 0 <= nx < W and free[ny, nx] and lab[ny, nx] == 0:
-                            lab[ny, nx] = n; dq.append((ny, nx))
-                sizes[n] = cnt
-                if border: touch.add(n)
-    inside = np.bincount(lab[inpoly & free], minlength=n + 1)
-    sel = np.zeros((H, W), bool)
-    for k, sz in sizes.items():
-        if k not in touch and sz >= 6 and inside[k] / sz >= 0.6:
-            sel |= (lab == k)
-    fg = sel | (barrier & dilate(sel, 8) & dilate(inpoly, 6))
-    return crop, largest(fg)
-
-
 def cut_flame(img: np.ndarray):
     x0, y0, x1, y1 = FLAME_BOX
     crop = img[y0:y1, x0:x1].astype(np.int16)
@@ -231,18 +164,6 @@ def finish_cut(crop: np.ndarray, fg: np.ndarray, name: str, *, height=None, widt
     return canvas
 
 
-def cut_dragon(img: np.ndarray) -> Image.Image:
-    x0, y0, x1, y1 = DRAGON_BOX
-    crop = img[y0:y1, x0:x1].astype(np.int16)
-    r, g, b = crop[..., 0], crop[..., 1], crop[..., 2]
-    warm = (r - b) > 18                       # 용은 주황, 빨강, 크림색 (배경은 청록, 파랑 계열)
-    dark = crop.max(axis=2) < 95              # 짙은 갈색 윤곽선
-    cand = warm | dark
-    outside = components_from_border(~cand)   # 가장자리와 이어진 배경
-    fg = largest(~outside)                    # 안쪽에 갇힌 눈, 이빨, 발톱까지 포함한 덩어리 중 가장 큰 것 = 용
-    return crop, fg
-
-
 def main():
     img = np.array(Image.open(SRC).convert('RGB'))
     print('원본', img.shape[1], 'x', img.shape[0])
@@ -255,26 +176,8 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray(bg).resize(BG_SIZE, Image.LANCZOS).save(os.path.join(OUT, 'start_bg.jpg'), quality=88, optimize=True, progressive=True)
 
-    # 2) 용: 워터마크만 지운 그림에서 오려낸다 (UI 를 지운 배경과 따로)
+    # 2) 브레스 불꽃 (워터마크만 지운 그림에서 오려낸다)
     clean = remove_sparkle(img)
-    crop, fg = cut_dragon(clean)
-    fg = erode(fg, 1)                                         # 가장자리에 묻은 배경색 한 겹을 벗긴다
-    a = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
-    alpha = np.array(a).astype(np.float32) / 255.0
-    # 이미지 아래쪽 가장자리에서 잘린 몸통은 서서히 투명하게 (떠 있는 용처럼 보이게)
-    fade = 90
-    alpha[-fade:] *= np.linspace(1.0, 0.0, fade)[:, None]
-    rgba = np.dstack([crop.astype(np.uint8), (alpha * 255).astype(np.uint8)])
-    dragon = Image.fromarray(rgba, 'RGBA')
-    dragon = dragon.crop(dragon.getchannel('A').point(lambda v: 255 if v > 8 else 0).getbbox())
-    if dragon.width > DRAGON_MAX_W:
-        dragon = dragon.resize((DRAGON_MAX_W, round(dragon.height * DRAGON_MAX_W / dragon.width)), Image.LANCZOS)
-    dragon.save(os.path.join(OUT, 'taunt_dragon.png'), optimize=True)
-    print('용:', dragon.size)
-
-    # 3) 기사 영웅, 4) 브레스 불꽃
-    kc, kfg = cut_knight(clean)
-    print('기사:', finish_cut(kc, kfg, 'h_knight.png', height=KNIGHT_H).size)
     fc, ffg = cut_flame(clean)
     print('불꽃:', finish_cut(fc, ffg, 'breath_flame.png', width=FLAME_W).size)
 
