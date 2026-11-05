@@ -12,6 +12,12 @@ export const SKIN_SCALE = 0.5;
  */
 export const PNG_FRAMES = ['e_goblin_walk1', 'e_goblin_walk2', 'e_goblin_stab1', 'e_goblin_stab2'] as const;
 
+/**
+ * SVG 대신 PNG 로 바꿔 쓰는 타워 그림 (레벨마다 한 장, 키는 SVG 와 같다). 만드는 법: scripts/slice-archer-tower.py.
+ * 같은 키의 SVG 는 불러오지 않는다 (BootScene).
+ */
+export const PNG_TOWERS = ['t_archer_1', 't_archer_2', 't_archer_3'] as const;
+
 /** SVG 로 불러온 텍스처 키 */
 const loaded = new Set<string>();
 export const markSkinTexture = (key: string) => loaded.add(key);

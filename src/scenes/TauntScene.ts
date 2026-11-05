@@ -35,8 +35,9 @@ export class TauntScene extends Phaser.Scene {
     }
 
     // 붉은 용: 왼쪽에서 날아 들어온다
-    const tx = texFor('e_drake');
-    this.dragon = this.add.image(-220, 320, tx.key).setDepth(10);
+    // 시작 화면 그림에서 오려낸 용 (왼쪽을 보고 있어서 뒤집어 오른쪽을 보게 한다). 없으면 기존 비룡 그림을 쓴다
+    const fromArt = this.textures.exists('taunt_dragon');
+    this.dragon = this.add.image(-220, 320, fromArt ? 'taunt_dragon' : texFor('e_drake').key).setDepth(10).setFlipX(fromArt);
     this.base = 360 / this.dragon.width;
     this.dragon.setScale(this.base);
     this.tweens.add({ targets: this.dragon, x: 290, duration: 800, ease: 'Cubic.Out', onComplete: () => this.sneer() });
