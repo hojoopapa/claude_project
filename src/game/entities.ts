@@ -18,6 +18,8 @@ export interface World {
   splashFx(x: number, y: number, r: number, color: number): void;
   /** 난이도에 따른 적 체력 배율 */
   readonly hpMul: number;
+  /** 파괴 공격(breath)이 있는 보스가 움직일 때마다 불린다: 발밑 파괴와 브레스 */
+  bossTick(e: Enemy, dt: number): void;
 }
 
 /** 적을 막아 세우는 것 (병사, 영웅, 벽) */
@@ -64,6 +66,7 @@ export class Enemy {
   y: number;
   dead = false;
   blocker: Blocker | null = null;
+  breathT = NaN;                  // 다음 브레스까지 남은 시간 (breath 가 있는 보스만 씀)
   private atk = 0.5;
   private flash = 0;
   private slowMul = 1;
@@ -180,6 +183,7 @@ export class Enemy {
     this.x = p.x; this.y = p.y;
     if (Math.abs(this.x - before) > 0.01) this.img.setFlipX(this.x < before);
     this.applyPose(true);
+    if (this.def.breath) this.w.bossTick(this, dt);
   }
 }
 

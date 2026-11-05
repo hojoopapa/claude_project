@@ -36,6 +36,13 @@ export function saveBestScore(levelId: number, score: number, diff: number): boo
   return true;
 }
 
+/** 내 최고 점수를 모두 지운다. 별(클리어 기록)은 그대로 둔다. */
+export function resetScores(): void {
+  const d = load();
+  delete d.scores;
+  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* ignore */ }
+}
+
 export function allBestScores(): Record<number, { score: number; diff: number }> {
   return load().scores ?? {};
 }

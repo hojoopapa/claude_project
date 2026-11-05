@@ -8,7 +8,7 @@ export type Sfx =
   | 'click' | 'build' | 'upgrade' | 'sell' | 'rally'
   | 'arrow' | 'magic' | 'cannon' | 'thunder' | 'frost'
   | 'hit' | 'die' | 'coin' | 'leak' | 'wave'
-  | 'fire' | 'reinf' | 'hero' | 'win' | 'lose';
+  | 'fire' | 'reinf' | 'hero' | 'win' | 'lose' | 'boss' | 'breath' | 'smash';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -61,6 +61,20 @@ function tone(c: AudioContext, t0: number, freq: number, dur: number, type: Osci
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
 
+/** 서서히 커졌다가 사라지는 긴 음 (보스 등장의 낮은 울림, 금관 화음용) */
+function swell(c: AudioContext, t0: number, freq: number, dur: number, type: OscillatorType, vol: number, peak = 0.45) {
+  const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t0);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(freq * 5, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + dur * peak);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(f).connect(g).connect(master!);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+
 /** 잡음(타격, 폭발, 바람 소리 등). lo/hi 는 필터가 지나가는 주파수 범위 */
 function noise(c: AudioContext, t0: number, dur: number, vol: number, lo = 200, hi = 4000) {
   if (!noiseBuf) {
@@ -85,7 +99,7 @@ const GAP: Record<Sfx, number> = {
   click: 0.05, build: 0.1, upgrade: 0.1, sell: 0.1, rally: 0.1,
   arrow: 0.07, magic: 0.08, cannon: 0.1, thunder: 0.12, frost: 0.1,
   hit: 0.06, die: 0.05, coin: 0.06, leak: 0.2, wave: 0.5,
-  fire: 0.1, reinf: 0.2, hero: 0.2, win: 1, lose: 1,
+  fire: 0.1, reinf: 0.2, hero: 0.2, win: 1, lose: 1, boss: 3, breath: 0.5, smash: 0.12,
 };
 
 export function play(name: Sfx): void {
@@ -132,6 +146,27 @@ export function play(name: Sfx): void {
     case 'hero': tone(c, t0, 300, 0.3, 'sawtooth', 0.28, 700); noise(c, t0, 0.25, 0.3, 300, 4000); break;
     case 'win':
       [523, 659, 784, 1047].forEach((f, i) => tone(c, t0 + i * 0.14, f, i === 3 ? 0.5 : 0.16, 'triangle', 0.26));
+      break;
+    case 'boss':
+      // 보스 등장(약 4초): 낮은 울림이 커지고, 북소리 다섯 번, 스산한 바람, 마지막에 금관 화음
+      swell(c, t0, 55, 3.8, 'sawtooth', 0.26);
+      swell(c, t0, 82.4, 3.8, 'sawtooth', 0.15);
+      swell(c, t0 + 0.3, 41.2, 3.5, 'sine', 0.35);
+      for (let i = 0; i < 5; i++) { tone(c, t0 + 0.2 + i * 0.6, 120, 0.4, 'sine', 0.5, 42); noise(c, t0 + 0.2 + i * 0.6, 0.12, 0.2, 80, 700); }
+      for (let i = 0; i < 4; i++) noise(c, t0 + i * 0.9, 1.1, 0.1, 400, 3000);
+      swell(c, t0 + 2.4, 146.8, 1.6, 'sawtooth', 0.13);
+      swell(c, t0 + 2.4, 220, 1.6, 'sawtooth', 0.11);
+      swell(c, t0 + 2.4, 277.2, 1.6, 'sawtooth', 0.09);
+      break;
+    case 'breath':
+      // 용의 포효와 불꽃: 낮게 갈라지는 소리 + 거친 바람
+      noise(c, t0, 1.0, 0.45, 80, 1800);
+      tone(c, t0, 95, 1.0, 'sawtooth', 0.38, 40);
+      tone(c, t0 + 0.05, 140, 0.8, 'square', 0.14, 60);
+      break;
+    case 'smash':
+      noise(c, t0, 0.25, 0.4, 100, 1500);
+      tone(c, t0, 150, 0.25, 'sawtooth', 0.3, 45);
       break;
     case 'lose':
       [392, 349, 311, 262].forEach((f, i) => tone(c, t0 + i * 0.2, f, i === 3 ? 0.6 : 0.22, 'sawtooth', 0.22));

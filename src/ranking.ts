@@ -20,7 +20,7 @@ export const rankingEnabled = () => base() !== '';
 export const cleanRoom = (s: string) => s.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 16);
 export const cleanName = (s: string) => s.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12);
 
-async function http(method: 'GET' | 'PUT', path: string, body?: unknown): Promise<unknown> {
+async function http(method: 'GET' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 7000);
   try {
@@ -53,6 +53,14 @@ export async function submitAll(): Promise<number> {
   let count = 0;
   for (const [lv, v] of Object.entries(best)) { await submitScore(Number(lv), v.score, v.diff); count++; }
   return count;
+}
+
+/** 온라인에 올린 내 기록(스테이지별과 전체 합계)을 모두 지운다. 현재 방 코드의 기록만 지운다 */
+export async function clearMine(levels: number): Promise<void> {
+  const id = getPlayer().id;
+  const jobs = [http('DELETE', `r/${room()}/totals/${id}.json`)];
+  for (let lv = 1; lv <= levels; lv++) jobs.push(http('DELETE', `r/${room()}/scores/${lv}/${id}.json`));
+  await Promise.all(jobs);
 }
 
 function toList(data: unknown): Entry[] {

@@ -15,7 +15,7 @@ import { cleanName, rankingEnabled, submitScore } from '../ranking';
 import { promptText } from '../domDialog';
 import { DIFFICULTIES, Features, featuresFor, NORMAL_SPEED_STAGES, SPEEDS, SpeedTier, TUTORIAL_STAGES } from '../data/features';
 import { ads } from '../ads';
-import { Btn, button, soundButton, text, C, icon, panel, modal } from '../ui';
+import { Btn, button, confirmModal, soundButton, text, C, icon, panel, modal } from '../ui';
 import { play } from '../sound';
 
 interface Spot { pos: Vec; img: Phaser.GameObjects.Image; tower: Tower | null }
@@ -43,6 +43,12 @@ const PROPS: Record<Theme, string[]> = {
 const MAX_PROPS = 14;
 
 const FIRE_CD = 40, REINF_CD = 22;
+
+/** 보스(오우거, 용)가 나오는 웨이브에서 보스가 등장하기까지 늘려 주는 시간(초). 이 동안 등장 연출이 나온다 */
+const BOSS_KINDS = new Set<EnemyKind>(['ogre', 'drake']);
+const BOSS_INTRO = 4;
+/** 용의 브레스: 목표를 찍어 두고 터지기까지의 예고 시간(게임 시계 기준 초) */
+const BREATH_DELAY = 1.1;
 
 /** 패배 후 광고를 보고 이어할 때: 스테이지당 횟수, 되살아나는 생명 비율(최대 생명 기준) */
 const REVIVE_PER_STAGE = 1, REVIVE_LIVES_RATIO = 0.5;
@@ -93,6 +99,8 @@ export class GameScene extends Phaser.Scene implements World {
   private spell: Spell | null = null;
   private spellCd: Record<Spell, number> = { fire: 0, reinf: 0 };
   private strikes: { t: number; x: number; y: number }[] = [];
+  /** 용의 브레스: 예고 중인 폭발 (t 에 터진다). warn 은 예고 표시 */
+  private blasts: { t: number; x: number; y: number; r: number; from: Vec; warn: Phaser.GameObjects.GameObject[] }[] = [];
 
   private hud!: { gold: Phaser.GameObjects.Text; lives: Phaser.GameObjects.Text; wave: Phaser.GameObjects.Text; hint: Phaser.GameObjects.Text };
   private hintBg!: Phaser.GameObjects.Graphics;
@@ -120,6 +128,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.walls = []; this.selWall = false;
     this.reviveLeft = REVIVE_PER_STAGE; this.inFrame = false;
     this.armedTip = null; this.menuRefresh = [];
+    this.blasts = [];
   }
 
   create() {
@@ -180,6 +189,92 @@ export class GameScene extends Phaser.Scene implements World {
   splashFx(x: number, y: number, r: number, color: number) {
     const c = this.add.circle(x, y, r, color, 0.55).setDepth(850);
     this.tweens.add({ targets: c, alpha: 0, scale: 1.3, duration: 260, onComplete: () => c.destroy() });
+  }
+
+  // ---------- 보스 용: 파괴 공격 ----------
+  /** 용이 움직일 때마다: 발밑의 유닛과 건물을 부수고, 때가 되면 브레스 목표를 정한다 */
+  bossTick(e: Enemy, dt: number) {
+    const b = e.def.breath!;
+    this.smashAt(e.x, e.y, b.stomp);
+    if (Number.isNaN(e.breathT)) e.breathT = b.first;
+    if ((e.breathT -= dt) > 0) return;
+    e.breathT = b.every;
+    const tgt = this.breathTarget(e, b.range);
+    if (tgt) this.startBreath(e, tgt, b.radius);
+  }
+
+  /** 반경 안의 타워, 병사, 영웅, 벽을 모두 부순다 (타워는 환불 없이 빈 터로 돌아간다) */
+  private smashAt(x: number, y: number, r: number) {
+    let hit = false;
+    for (const tw of [...this.towers]) {
+      if (Math.hypot(tw.pos.x - x, tw.pos.y - y) > r) continue;
+      this.destroyTower(tw); hit = true;
+    }
+    for (const s of this.soldiers) {
+      if (s.dead || Math.hypot(s.x - x, s.y - y) > r) continue;
+      s.kill(); this.splashFx(s.x, s.y, 16, 0xff7a1a); hit = true;
+    }
+    for (const w of this.walls) {
+      if (w.dead || Math.hypot(w.x - x, w.y - y) > r) continue;
+      w.kill(); hit = true;
+    }
+    if (hit) { play('smash'); this.cameras.main.shake(160, 0.005); }
+  }
+
+  private destroyTower(tw: Tower) {
+    const spot = this.spots.find((s) => s.tower === tw);
+    this.splashFx(tw.pos.x, tw.pos.y - 10, 34, 0xff6a1a);
+    tw.destroy();
+    this.towers.splice(this.towers.indexOf(tw), 1);
+    if (spot) { spot.tower = null; spot.img.setVisible(true).setInteractive(); }
+    if (this.selRally === tw) this.cancelRally();
+    this.closeMenu();
+  }
+
+  /** 브레스 목표: 사거리 안에서 가장 가까운 타워, 없으면 가장 가까운 병사/영웅/벽 */
+  private breathTarget(e: Enemy, range: number): Vec | null {
+    const nearest = (list: Vec[]) => list
+      .filter((p) => Math.hypot(p.x - e.x, p.y - e.y) <= range)
+      .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))[0] ?? null;
+    return nearest(this.towers.map((tw) => tw.pos))
+      ?? nearest([...this.soldiers.filter((s) => !s.dead), ...this.walls.filter((w) => !w.dead)].map((o) => ({ x: o.x, y: o.y })));
+  }
+
+  /** 브레스 예고: 목표 지점에 붉은 원을 띄우고 BREATH_DELAY 뒤에 터뜨린다 */
+  private startBreath(e: Enemy, tgt: Vec, r: number) {
+    play('breath');
+    this.cameras.main.shake(350, 0.004);
+    const warn = this.add.circle(tgt.x, tgt.y, r, 0xff3a1a, 0.2).setStrokeStyle(3, 0xff6a3a, 0.9).setDepth(930);
+    this.tweens.add({ targets: warn, alpha: { from: 0.35, to: 1 }, yoyo: true, repeat: -1, duration: 220 });
+    const label = text(this, tgt.x, tgt.y - r - 12, t('breathWarn'), 16, '#ff9a6a', { stroke: 4 }).setDepth(960);
+    this.blasts.push({ t: this.clock + BREATH_DELAY, x: tgt.x, y: tgt.y, r, from: { x: e.x + (e.img.flipX ? -24 : 24), y: e.y - 44 }, warn: [warn, label] });
+  }
+
+  private fireBlast(b: { x: number; y: number; r: number; from: Vec }) {
+    const g = this.add.graphics().setDepth(935);
+    g.lineStyle(16, 0xff6a1a, 0.9).lineBetween(b.from.x, b.from.y, b.x, b.y);
+    g.lineStyle(6, 0xffe08a, 1).lineBetween(b.from.x, b.from.y, b.x, b.y);
+    this.tweens.add({ targets: g, alpha: 0, duration: 450, onComplete: () => g.destroy() });
+    this.splashFx(b.x, b.y, b.r, 0xff5a1a);
+    this.splashFx(b.x, b.y, b.r * 0.6, 0xffd34d);
+    play('fire');
+    this.cameras.main.shake(300, 0.008);
+    this.smashAt(b.x, b.y, b.r);
+  }
+
+  // ---------- 보스 등장 연출 ----------
+  /** 보스 웨이브가 시작될 때: 웅장한 소리, 화면 흔들림, 붉은 어둠, 스산한 바람 */
+  private bossIntro() {
+    play('boss');
+    this.cameras.main.shake(BOSS_INTRO * 1000, 0.004);
+    const dark = this.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x240606, 0).setDepth(945);
+    this.tweens.add({ targets: dark, alpha: 0.5, duration: 1400, hold: 600, yoyo: true, onComplete: () => dark.destroy() });
+    for (let i = 0; i < 46; i++) {
+      const len = Phaser.Math.Between(50, 150);
+      const s = this.add.rectangle(-len, Phaser.Math.Between(40, GAME_H - 40), len, Phaser.Math.Between(1, 3), 0xdfe6f2, Phaser.Math.FloatBetween(0.15, 0.4)).setDepth(946);
+      this.tweens.add({ targets: s, x: GAME_W + len, duration: Phaser.Math.Between(900, 1800), delay: Phaser.Math.Between(0, 3000), onComplete: () => s.destroy() });
+    }
+    this.showBanner(t('bossWarn'), t('bossWarnSub'));
   }
 
   // ---------- 맵 ----------
@@ -310,6 +405,7 @@ export class GameScene extends Phaser.Scene implements World {
         { icon: wallFor(this.level.id).tex, iconScale: 1.7, layout: 'top' })),
     };
     soundButton(this, GAME_W - 200, 25, 52, 42).bg.setDepth(901);
+    button(this, GAME_W - 256, 25, 52, 42, '', () => void this.askHome(), C.slate, 15, { icon: 'ic_home', iconScale: 0.8, ...small }).bg.setDepth(901);
     this.refreshSpeedButtons();
     this.buttons.fire.setVisible(f.fire);
     this.buttons.reinf.setVisible(f.reinf);
@@ -368,6 +464,15 @@ export class GameScene extends Phaser.Scene implements World {
   private earlyBonus() {
     const left = this.nextWaveAt - this.clock;
     return Number.isFinite(left) ? Math.max(0, Math.floor(left * 2)) : 0;
+  }
+
+  /** 스테이지 도중 초기화면으로 나가기 (진행 중인 스테이지는 저장되지 않으므로 먼저 묻는다) */
+  private async askHome() {
+    if (this.over || this.modal) return;
+    this.modal = true;                       // 묻는 동안 전투를 멈춘다
+    const ok = await confirmModal(this, { title: t('homeTitle'), body: t('homeBody'), ok: t('homeOk'), cancel: t('homeStay'), accent: C.danger, danger: true });
+    this.modal = false;
+    if (ok) this.scene.start('Menu');
   }
 
   private togglePause() {
@@ -731,14 +836,17 @@ export class GameScene extends Phaser.Scene implements World {
     this.waveIdx++;
     play('wave');
     const wave = this.level.waves[this.waveIdx];
+    const hasBoss = wave.groups.some((grp) => BOSS_KINDS.has(grp.kind));
     for (const grp of wave.groups) {
+      const wait = hasBoss && BOSS_KINDS.has(grp.kind) ? BOSS_INTRO : 0;   // 보스는 등장 연출이 끝난 뒤에 나온다
       for (let i = 0; i < grp.count; i++) {
-        this.pending.push({ t: this.clock + (grp.delay ?? 0) + i * grp.interval, kind: grp.kind, path: grp.path ?? 0 });
+        this.pending.push({ t: this.clock + wait + (grp.delay ?? 0) + i * grp.interval, kind: grp.kind, path: grp.path ?? 0 });
       }
     }
     this.nextWaveAt = wave.time > 0 ? this.clock + wave.time : Infinity;
     const last = this.waveIdx === this.level.waves.length - 1;
     this.showBanner(last ? t('lastWave') : t('waveBanner', { n: this.waveIdx + 1 }), '');
+    if (hasBoss) this.bossIntro();           // 일반 웨이브 배너 뒤에 불러서 "보스 출현!"이 보이게 한다
   }
 
   private callNextWave() {
@@ -955,6 +1063,13 @@ export class GameScene extends Phaser.Scene implements World {
       this.splashFx(s.x, s.y, 44, 0xff6a1a);
       for (const e of this.enemies) if (!e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= 44) e.hurt(46, true);
       this.strikes.splice(i, 1);
+    }
+    for (let i = this.blasts.length - 1; i >= 0; i--) {
+      const b = this.blasts[i];
+      if (b.t > this.clock) continue;
+      b.warn.forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
+      this.blasts.splice(i, 1);
+      this.fireBlast(b);
     }
 
     this.enemies.forEach((e) => e.update(dt));

@@ -37,7 +37,8 @@ export function featuresFor(stage: number): Features {
 
 /** 난이도: 0 쉬움, 1 보통(기준), 2 어려움 */
 export const DIFFICULTIES = [
-  { hp: 0.825, gold: 1.25, lives: 5 },   // 벽 추가로 쉬워지는 만큼 적 체력 +10% (0.75 → 0.825)
-  { hp: 1, gold: 1, lives: 0 },
-  { hp: 1.25, gold: 0.9, lives: -5 },
+  // 적 체력 배율. 벽 추가에 맞춰 쉬움을 +10%(0.75 → 0.825), 이어서 세 난이도 모두 +10%를 더 올렸다 (2026-11-05)
+  { hp: 0.91, gold: 1.25, lives: 5 },
+  { hp: 1.1, gold: 1, lives: 0 },
+  { hp: 1.38, gold: 0.9, lives: -5 },
 ] as const;

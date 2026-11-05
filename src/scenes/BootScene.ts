@@ -106,6 +106,10 @@ export class BootScene extends Phaser.Scene {
       speaker(g);
       g.lineStyle(4, 0xff6b6b, 1).lineBetween(32, 17, 44, 31).lineBetween(44, 17, 32, 31);
     });
+    tex(this, 'ic_home', 48, 48, (g) => {
+      g.fillStyle(0xffffff).fillTriangle(24, 6, 4, 25, 44, 25).fillRect(10, 24, 28, 18);
+      g.fillStyle(0x2a3350).fillRect(20, 30, 8, 12);
+    });
     tex(this, 'ic_flag', 48, 48, (g) => {
       g.fillStyle(0xe8e0d0).fillRect(11, 5, 4, 38);
       g.fillStyle(0xff5a4a).fillTriangle(15, 7, 41, 16, 15, 26);

@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import { LEVELS } from '../data/levels';
-import { allBestScores, getPlayer, setPlayer, totalScore } from '../save';
-import { button, text, icon, panel, C } from '../ui';
+import { allBestScores, getPlayer, resetScores, setPlayer, totalScore } from '../save';
+import { button, confirmModal, text, icon, panel, C } from '../ui';
 import { t } from '../i18n';
-import { Entry, cleanName, cleanRoom, fetchLevel, fetchTotals, rankingEnabled, submitAll } from '../ranking';
+import { Entry, cleanName, cleanRoom, clearMine, fetchLevel, fetchTotals, rankingEnabled, submitAll } from '../ranking';
 import { promptText } from '../domDialog';
 import { fmt } from '../score';
 
@@ -42,8 +42,21 @@ export class RankingScene extends Phaser.Scene {
     g.fillStyle(on ? 0x2fb872 : 0x6b7694, 1).fillCircle(GAME_W - 180, 44, 5);
     text(this, GAME_W - 100, 44, on ? `${t('room')}: ${room}` : 'offline', 13, on ? C.text : C.dim, { weight: '500' });
 
+    button(this, 690, 44, 130, 36, t('resetBtn'), () => void this.resetMine(), 0x7a3a3f, 14, { radius: 14 });
+
     if (!on) { this.offlineView(); return; }
     this.onlineView();
+  }
+
+  /** 내 점수 초기화: 이 기기의 최고 점수를 지우고, 온라인 랭킹이 켜져 있으면 내 기록도 지운다 */
+  private async resetMine() {
+    const ok = await confirmModal(this, { title: t('resetTitle'), body: t('resetBody'), ok: t('resetOk'), cancel: t('cancel'), accent: C.danger, danger: true });
+    if (!ok) return;
+    resetScores();
+    let failed = false;
+    if (rankingEnabled()) { try { await clearMine(LEVELS.length); } catch { failed = true; } }
+    text(this, GAME_W / 2, 270, failed ? t('resetFail') : t('resetDone'), 20, failed ? C.red : C.gold, { weight: '700', stroke: 5 }).setDepth(50).setWordWrapWidth(620).setAlign('center');
+    this.time.delayedCall(failed ? 1800 : 900, () => this.scene.restart({ level: this.tab }));
   }
 
   // ---------- 온라인 ----------

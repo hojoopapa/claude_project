@@ -16,6 +16,11 @@ export interface EnemyDef {
   heal?: { radius: number; pct: number; every: number };
   /** 움직임 종류: walk 걷기, heavy 묵직한 걸음, float 둥실, flap 날갯짓 */
   anim: 'walk' | 'heavy' | 'float' | 'flap';
+  /**
+   * 보스 용의 파괴 공격. 날아가는 동안 발밑(stomp 반경)의 유닛과 건물을 부수고,
+   * every 초마다 range 안의 목표를 골라 예고 후 radius 반경에 브레스를 쏜다 (first 는 첫 브레스까지의 시간).
+   */
+  breath?: { stomp: number; every: number; first: number; radius: number; range: number };
 }
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
@@ -27,6 +32,6 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   bat: { name: '박쥐', hp: 24, speed: 115, armor: 0, mr: 0, gold: 3, lives: 1, flying: true, dmg: 0, tex: 'e_bat', scale: 1, anim: 'flap' },
   wraith: { name: '망령', hp: 95, speed: 62, armor: 0, mr: 0.65, gold: 8, lives: 2, flying: false, dmg: 8, tex: 'e_wraith', scale: 1, anim: 'float' },
   shaman: { name: '주술사', hp: 85, speed: 48, armor: 0.15, mr: 0.2, gold: 9, lives: 2, flying: false, dmg: 4, tex: 'e_shaman', scale: 1, heal: { radius: 100, pct: 0.12, every: 2.5 }, anim: 'walk' },
-  drake: { name: '화염 비룡', hp: 3800, speed: 38, armor: 0.3, mr: 0.3, gold: 200, lives: 10, flying: true, dmg: 0, tex: 'e_drake', scale: 1, anim: 'flap' },
+  drake: { name: '화염 비룡', hp: 3800, speed: 38, armor: 0.3, mr: 0.3, gold: 200, lives: 10, flying: true, dmg: 0, tex: 'e_drake', scale: 1, anim: 'flap', breath: { stomp: 38, every: 6.5, first: 2.5, radius: 85, range: 320 } },
   ogre: { name: '오우거 군주', hp: 1600, speed: 30, armor: 0.5, mr: 0.3, gold: 120, lives: 5, flying: false, dmg: 22, tex: 'e_ogre', scale: 1, anim: 'heavy' },
 };

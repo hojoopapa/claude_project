@@ -167,3 +167,21 @@ export function soundButton(scene: Phaser.Scene, x: number, y: number, w = 40, h
   }, C.slate, 14, { icon: soundOn() ? 'ic_sound' : 'ic_mute', iconScale: 0.7, radius: 10 });
   return b;
 }
+
+/** 예/아니오 확인창. 확인을 누르면 true, 취소하면 false */
+export function confirmModal(
+  scene: Phaser.Scene, o: { title: string; body: string; ok: string; cancel: string; accent?: number; danger?: boolean },
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const m = modal(scene, 620, 300, 3500, o.accent ?? C.goldHex);
+    const ui = m.objects, d = m.depth + 2;
+    const close = (v: boolean) => { ui.forEach((x) => x.destroy()); resolve(v); };
+    const title = text(scene, m.cx, m.cy - 95, o.title, 26, o.danger ? C.red : C.gold).setDepth(d);
+    const body = text(scene, m.cx, m.cy - 15, o.body, 18, C.text, { weight: '500' })
+      .setDepth(d).setWordWrapWidth(540).setAlign('center').setLineSpacing(7);
+    const no = button(scene, m.cx - 110, m.cy + 95, 180, 48, o.cancel, () => close(false), C.slate, 18);
+    const yes = button(scene, m.cx + 110, m.cy + 95, 180, 48, o.ok, () => close(true), o.danger ? C.danger : C.green, 18);
+    no.bg.setDepth(d); yes.bg.setDepth(d);
+    ui.push(title, body, no.bg, yes.bg);
+  });
+}
