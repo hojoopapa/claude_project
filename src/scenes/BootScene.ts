@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { markSkinTexture, PNG_FRAMES, PNG_TOWERS, queueSkin, SkinIndex } from '../skin';
+import { markSkinTexture, PNG_FRAMES, PNG_REPLACE, queueSkin, SkinIndex } from '../skin';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -26,18 +26,19 @@ export class BootScene extends Phaser.Scene {
   preload() {
     const base = import.meta.env.BASE_URL;
     this.load.json('skin-svg', `${base}skins/svg/index.json`);
-    for (const k of [...PNG_FRAMES, ...PNG_TOWERS]) this.load.image(k, `${base}skins/png/${k}.png`);
+    for (const k of [...PNG_FRAMES, ...PNG_REPLACE]) this.load.image(k, `${base}skins/png/${k}.png`);
     // 시작 화면 배경(글자와 버튼은 지운 그림)과 약올리는 용 (scripts/prepare-start-art.py 로 만든다)
     this.load.image('start_bg', `${base}skins/png/start_bg.jpg`);
     this.load.image('taunt_dragon', `${base}skins/png/taunt_dragon.png`);
+    this.load.image('breath_flame', `${base}skins/png/breath_flame.png`);   // 용의 브레스 불꽃
   }
 
   create() {
     const index = this.cache.json.exists('skin-svg') ? ({ ...(this.cache.json.get('skin-svg') as SkinIndex) }) : undefined;
-    for (const k of PNG_TOWERS) if (this.textures.exists(k)) delete index?.[k];   // PNG 로 바꾼 타워는 같은 키의 SVG 를 불러오지 않는다
+    for (const k of PNG_REPLACE) if (this.textures.exists(k)) delete index?.[k];   // PNG 로 바꾼 그림은 같은 키의 SVG 를 불러오지 않는다
     const finish = () => {
       for (const k of Object.keys(index ?? {})) if (this.textures.exists(k)) markSkinTexture(k);
-      for (const k of [...PNG_FRAMES, ...PNG_TOWERS]) if (this.textures.exists(k)) markSkinTexture(k);
+      for (const k of [...PNG_FRAMES, ...PNG_REPLACE]) if (this.textures.exists(k)) markSkinTexture(k);
       this.makeProceduralTextures();
       this.scene.start('Menu');
     };

@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H, FONT } from '../config';
 import { button, soundButton, C } from '../ui';
 import { LANGS, langIndex, nextLang, t } from '../i18n';
-import { shouldTaunt } from './TauntScene';
 
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
@@ -21,7 +20,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setShadow(0, 4, 'rgba(255,205,90,0.6)', 16, true, true);
     if (title.width > 660) title.setScale(660 / title.width);
 
-    button(this, GAME_W / 2, 440, 260, 64, t('start'), () => this.scene.start(shouldTaunt() ? 'Taunt' : 'LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
+    button(this, GAME_W / 2, 440, 260, 64, t('start'), () => this.scene.start('LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
     button(this, GAME_W / 2, 502, 200, 40, t('ranking'), () => this.scene.start('Ranking'), C.slate, 16, { icon: 'ic_trophy', iconScale: 0.65, radius: 20 });
 
     // 오른쪽 위: 소리와 언어

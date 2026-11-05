@@ -67,6 +67,7 @@ export class Enemy {
   dead = false;
   blocker: Blocker | null = null;
   breathT = NaN;                  // 다음 브레스까지 남은 시간 (breath 가 있는 보스만 씀)
+  facing: 1 | -1 = 1;             // 가는 방향 (1 = 오른쪽)
   private atk = 0.5;
   private flash = 0;
   private slowMul = 1;
@@ -86,10 +87,20 @@ export class Enemy {
     this.hp = this.maxHp = this.def.hp * w.hpMul;
     const p = path.at(0);
     this.x = p.x; this.y = p.y;
+    // 한 장짜리 PNG 그림(sprite)이 있으면 그것으로, 없으면 SVG 그림으로 그린다
+    const sp = this.def.sprite && w.gs.textures.exists(this.def.sprite.key) ? this.def.sprite : null;
     const tx = texFor(this.def.tex);
-    this.baseScale = this.def.scale * tx.scale;
-    this.img = w.gs.add.image(p.x, p.y, tx.key).setScale(this.baseScale).setAlpha(0);
+    this.img = w.gs.add.image(p.x, p.y, sp ? sp.key : tx.key);
+    this.baseScale = sp ? sp.width / this.img.width : this.def.scale * tx.scale;
+    this.img.setScale(this.baseScale).setAlpha(0);
+    if (sp?.facesLeft) this.img.setFlipX(true);          // 원본이 왼쪽을 보고 있으니 처음(오른쪽으로 감)에는 뒤집는다
     this.shadow = makeShadow(w, this.img, this.def.flying).setAlpha(0);
+  }
+
+  /** 입 위치. 용이 브레스를 쏘는 곳 */
+  mouth(): Vec {
+    const sp = this.def.sprite;
+    return sp ? { x: this.x + this.facing * sp.width * 0.4, y: this.y - 20 } : { x: this.x + this.facing * 24, y: this.y - 44 };
   }
 
   hurt(amount: number, magic: boolean) {
@@ -197,7 +208,10 @@ export class Enemy {
     }
     const p = this.path.at(this.d);
     this.x = p.x; this.y = p.y;
-    if (Math.abs(this.x - before) > 0.01) this.img.setFlipX(this.x < before);
+    if (Math.abs(this.x - before) > 0.01) {
+      this.facing = this.x < before ? -1 : 1;
+      this.img.setFlipX(this.def.sprite?.facesLeft ? this.facing === 1 : this.facing === -1);
+    }
     this.applyPose(true);
     if (this.def.breath) this.w.bossTick(this, dt);
   }

@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { t } from './i18n';
 import { C, button, modal, text } from './ui';
 
-/** 보상형 광고 종류. short = 2X 속도, long = 3X 속도, revive = 패배 후 이어하기 */
-export type AdKind = 'short' | 'long' | 'revive';
+/** 보상형 광고 종류. short = 2X 속도, long = 3X 속도, revive = 패배 후 이어하기, intro = 시작 인트로 없애기 */
+export type AdKind = 'short' | 'long' | 'revive' | 'intro';
 
 /**
  * 광고 공급자. 포털(CrazyGames, Poki 등)에 올릴 때는 이 인터페이스만 SDK에 맞게 구현해서
@@ -20,7 +20,7 @@ export interface AdProvider {
 }
 
 /** 테스트용 모의 광고 길이(초). 주소에 ?adsec=3 을 붙이면 모두 그 값으로 줄어든다 */
-const MOCK_SECONDS: Record<AdKind, number> = { short: 5, long: 15, revive: 10 };
+const MOCK_SECONDS: Record<AdKind, number> = { short: 5, long: 15, revive: 10, intro: 5 };
 
 function adSeconds(kind: AdKind): number {
   const v = Number(new URLSearchParams(location.search).get('adsec'));

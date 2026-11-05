@@ -16,6 +16,7 @@ import { askUniqueName } from '../nameDialog';
 import { promptText } from '../domDialog';
 import { DIFFICULTIES, Features, featuresFor, NORMAL_SPEED_STAGES, SPEEDS, SpeedTier, TUTORIAL_STAGES } from '../data/features';
 import { ads } from '../ads';
+import { shouldTaunt } from './TauntScene';
 import { Btn, button, confirmModal, soundButton, text, C, icon, panel, modal } from '../ui';
 import { play } from '../sound';
 
@@ -172,6 +173,9 @@ export class GameScene extends Phaser.Scene implements World {
 
     this.showBanner(`${this.level.id}. ${t('level.' + this.level.id)}`, t('startHint'));
     this.nextWaveAt = this.clock + (this.level.id <= TUTORIAL_STAGES ? 25 : 12); // 첫 웨이브 전 준비 시간
+
+    // 스테이지를 시작할 때마다 약올림 팝업 (광고로 없앴으면 안 뜬다). 다시 하기, 다음 스테이지에서도 뜬다
+    if (shouldTaunt()) this.scene.launch('Taunt', { level: this.level.id });
   }
 
   // ---------- World ----------
@@ -248,7 +252,7 @@ export class GameScene extends Phaser.Scene implements World {
     const warn = this.add.circle(tgt.x, tgt.y, r, 0xff3a1a, 0.2).setStrokeStyle(3, 0xff6a3a, 0.9).setDepth(930);
     this.tweens.add({ targets: warn, alpha: { from: 0.35, to: 1 }, yoyo: true, repeat: -1, duration: 220 });
     const label = text(this, tgt.x, tgt.y - r - 12, t('breathWarn'), 16, '#ff9a6a', { stroke: 4 }).setDepth(960);
-    this.blasts.push({ t: this.clock + BREATH_DELAY, x: tgt.x, y: tgt.y, r, from: { x: e.x + (e.img.flipX ? -24 : 24), y: e.y - 44 }, warn: [warn, label] });
+    this.blasts.push({ t: this.clock + BREATH_DELAY, x: tgt.x, y: tgt.y, r, from: e.mouth(), warn: [warn, label] });
   }
 
   private fireBlast(b: { x: number; y: number; r: number; from: Vec }) {
@@ -258,6 +262,19 @@ export class GameScene extends Phaser.Scene implements World {
     this.tweens.add({ targets: g, alpha: 0, duration: 450, onComplete: () => g.destroy() });
     this.splashFx(b.x, b.y, b.r, 0xff5a1a);
     this.splashFx(b.x, b.y, b.r * 0.6, 0xffd34d);
+    // 불꽃 그림 (시작 화면 시안의 불꽃): 입에서 목표까지 줄지어 날아가고, 목표에서 크게 터진다
+    if (this.textures.exists('breath_flame')) {
+      const ang = Math.atan2(b.y - b.from.y, b.x - b.from.x) + Math.PI;   // 그림의 넓은 쪽(왼쪽)이 가는 방향을 향하게
+      for (let i = 0; i < 4; i++) {
+        const k = (i + 1) / 5;
+        const f = this.add.image(b.from.x + (b.x - b.from.x) * k, b.from.y + (b.y - b.from.y) * k, 'breath_flame').setRotation(ang).setDepth(936);
+        f.setScale((34 + 14 * i) / f.width);
+        this.tweens.add({ targets: f, alpha: 0, scale: f.scale * 1.6, duration: 520, delay: i * 40, onComplete: () => f.destroy() });
+      }
+      const big = this.add.image(b.x, b.y, 'breath_flame').setRotation(ang).setDepth(937);
+      big.setScale((b.r * 2.4) / big.width);
+      this.tweens.add({ targets: big, alpha: 0, scale: big.scale * 1.3, duration: 650, onComplete: () => big.destroy() });
+    }
     play('fire');
     this.cameras.main.shake(300, 0.008);
     this.smashAt(b.x, b.y, b.r);
@@ -992,7 +1009,7 @@ export class GameScene extends Phaser.Scene implements World {
   update(_time: number, delta: number) {
     this.updateHud();
     this.drawBars();
-    if (this.paused || this.over || this.modal) return;
+    if (this.paused || this.over || this.modal || this.scene.isActive('Taunt')) return;   // 팝업이 떠 있는 동안은 멈춘다
     this.inFrame = true;                       // 이어하기 안내는 실제 화면 루프에서만 띄운다 (밸런스 시뮬레이션은 step 을 직접 부른다)
     this.step(Math.min(delta, 50) / 1000 * this.speed);
     this.inFrame = false;
@@ -1100,7 +1117,10 @@ export class GameScene extends Phaser.Scene implements World {
     };
     const hpColor = (f: number) => (f > 0.6 ? 0x4cd27a : f > 0.3 ? 0xffc83d : 0xff5a5a);
     for (const e of this.enemies) {
-      if (e.hp < e.maxHp) bar(e.x, e.y - (e.def.flying ? 44 : 26) - (e.def.tex === 'e_ogre' ? 16 : 0), e.def.tex === 'e_ogre' ? 44 : 26, e.hp / e.maxHp, hpColor(e.hp / e.maxHp));
+      // 체력바는 몸 위에 둔다 (한 장짜리 큰 그림은 그림 높이에 맞춘다)
+      const big = e.def.tex === 'e_ogre' || !!e.def.sprite;
+      const top = e.def.sprite ? e.img.displayHeight * 0.5 + 12 : (e.def.flying ? 44 : 26) + (e.def.tex === 'e_ogre' ? 16 : 0);
+      if (e.hp < e.maxHp) bar(e.x, e.y - top, big ? 44 : 26, e.hp / e.maxHp, hpColor(e.hp / e.maxHp));
     }
     if (this.selHero) {
       const h = this.heroes[this.selHero].hero;
