@@ -70,7 +70,7 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 - `main`에 푸시되면 `.github/workflows/deploy.yml`이 GitHub Pages에 자동 배포한다 (공개 주소: https://hojoopapa.github.io/claude_project/). 저장소 Settings → Pages → Source가 "GitHub Actions"여야 한다. 검색엔진 색인은 막아 둔다(`noindex`).
 
 ## 다음 작업
-1. 랭킹 DB(Firebase)를 만들어 `RANKING_URL`을 설정한다 (`docs/ranking-setup.md`). 그전까지는 내 기록만 보인다.
+1. (완료 2026-11-05) 랭킹 DB(Firebase Realtime Database, 프로젝트 realtime-database-c4fff)를 연결했다. 주소는 `src/config.ts`의 `DEFAULT_RANKING_URL`이고 규칙은 `docs/ranking-setup.md`와 같다. 로그인 없는 구조라 친구끼리 가볍게 비교하는 용도다.
 2. 20개 스테이지를 사람이 플레이해 보고 `power` 조정. 광고 제거와 영웅 자동 등장으로 5번 이후가 이전보다 쉬워졌다 (봇 시뮬레이션: 보통 난이도에서 12, 18, 20번만 패배). 필요하면 후반 `power`를 올린다.
 3. 실제 폰에서 터치·화면 확인 (버튼 크기와 건설 메뉴 설명은 보강함).
 4. 포털에 올릴 때 모의 광고(`src/ads.ts`)를 실제 광고 SDK로 교체.

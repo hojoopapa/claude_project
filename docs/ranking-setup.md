@@ -44,7 +44,7 @@
 ```
 
 4. **데이터** 탭 맨 위에 보이는 주소를 복사한다. 예: `https://내프로젝트-default-rtdb.asia-southeast1.firebasedatabase.app`
-5. 그 주소를 게임에 넣는다. 둘 중 하나:
+5. 그 주소를 게임에 넣는다. (이 프로젝트는 `src/config.ts`의 `DEFAULT_RANKING_URL`에 이미 넣어 두었다. 다른 DB로 바꿀 때만 아래를 쓴다.) 둘 중 하나:
    - GitHub 저장소 **Settings → Secrets and variables → Actions → Variables** 탭에서 `RANKING_URL` 변수를 만들고 주소를 넣는다. 그다음 Actions 탭에서 "Deploy to GitHub Pages"를 다시 실행한다.
    - 또는 Claude에게 주소를 알려주면 `src/config.ts`에 넣어 병합한다.
 
