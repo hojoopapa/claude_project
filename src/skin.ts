@@ -14,6 +14,7 @@ export const PNG_FRAMES = [
   'e_goblin_walk1', 'e_goblin_walk2', 'e_goblin_stab1', 'e_goblin_stab2',
   'dragon_idle', 'dragon_prep',          // 보스 용: 평소 / 브레스를 모을 때 (scripts/slice-dragon-knight.py)
   'h_knight_atk',                        // 기사 영웅이 공격하는 순간 (평소 그림 h_knight 는 PNG_REPLACE)
+  'e_wolf_run1', 'e_wolf_run2',           // 늑대: 달리기 두 장 (scripts/slice-wolf.py)
   'e_wisp_idle1', 'e_wisp_idle2', 'e_wisp_atk',   // 도깨비불: 날아다닐 때 번갈아 / 맞았을 때 (scripts/slice-wisp.py)
 ] as const;
 

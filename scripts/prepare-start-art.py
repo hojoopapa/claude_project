@@ -7,26 +7,26 @@
 2) breath_flame.png : 용 옆의 불꽃 (브레스 연출용)
 (용과 기사는 새로 받은 시트 용.png 를 쓰므로 여기서는 뽑지 않는다: scripts/slice-dragon-knight.py)
 
-원본 오른쪽 아래의 흰색 반짝이 로고(반투명 흰 별)는 용 꼬리 윤곽선에 걸려 있어서, 덧씌움을 거꾸로 풀어 지운다 (remove_sparkle).
-원본 이미지를 바꾸면 아래 REGIONS, DRAGON_BOX 와 remove_sparkle 의 좌표를 확인한다 (원본 2752x1536 기준 픽셀).
+원본 이미지를 바꾸면 아래 REGIONS, FLAME_BOX 의 좌표를 확인한다 (원본 1672x941 기준 픽셀).
+(이전 원본에는 오른쪽 아래 반투명 별 워터마크가 있어 지우는 함수를 썼으나, 새 원본에는 없어 뺐다. 필요하면 git 기록 bad0e31 의 remove_sparkle 참고)
 """
 import os, sys
 import numpy as np
 from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'docs', 'art', 'source', 'start.jpg')
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'docs', 'art', 'source', 'start.png')
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, '..', 'public', 'skins', 'png')
 
 # 지울 영역 (x0, y0, x1, y1). 글자와 버튼 주변의 빛번짐까지 포함한다.
 REGIONS = {
-    'title': (805, 95, 1945, 425),            # 제목 "왕국 수호대"
-    'buttons': (1040, 1156, 1710, 1510),        # "게임 시작" + "랭킹" (빛번짐 일부는 남겨서 게임이 그리는 버튼의 빛처럼 보이게 한다)
-    'top_buttons': (2236, 16, 2728, 166),      # 소리, 언어 버튼
+    'title': (495, 50, 1185, 234),            # 제목 "왕국 수호대"
+    'buttons': (645, 686, 1040, 925),           # "게임 시작" + "랭킹" (아래쪽은 그림 끝)
+    'top_buttons': (1352, 6, 1664, 108),        # 소리, 언어 버튼 (그림 맨 위라 위쪽에 하늘색 여백을 덧붙여 색을 잰다)
 }
-FLAME_BOX = (1930, 1110, 2160, 1340)           # 불꽃이 들어 있는 영역
-FLAME_W = 160                                  # 불꽃 폭 (2배 해상도 기준)
-BG_SIZE = (1920, 1072)                         # 화면 960x540 의 2배 해상도 (원본 비율 유지)
+FLAME_BOX = (1192, 679, 1312, 770)             # 불꽃이 들어 있는 영역
+FLAME_W = 110                                  # 불꽃 폭 (2배 해상도 기준)
+BG_SIZE = (1920, 1080)                         # 화면 960x540 의 2배 해상도 (원본 비율 16:9)
 
 
 def _smooth(v: np.ndarray, k: int) -> np.ndarray:
@@ -54,7 +54,7 @@ def _robust_curve(v: np.ndarray, deg: int = 2) -> np.ndarray:
     return out
 
 
-def inpaint(img: np.ndarray, box, feather=10, robust=True) -> np.ndarray:
+def inpaint(img: np.ndarray, box, feather=4, robust=True) -> np.ndarray:
     """
     box 안을 네 변 바깥쪽 색의 변화를 이어서 채운다 (Coons 보간).
     하늘과 풀밭처럼 색이 완만하게 변하는 배경에 맞고, 가장자리는 feather 픽셀에 걸쳐 원래 그림과 섞는다.
@@ -82,29 +82,6 @@ def inpaint(img: np.ndarray, box, feather=10, robust=True) -> np.ndarray:
     a = np.clip(np.minimum(dx, dy) / float(feather), 0, 1)[..., None]
     out = img.copy()
     out[y0:y1, x0:x1] = np.clip(fill * a + f[y0:y1, x0:x1] * (1 - a), 0, 255).astype(img.dtype)
-    return out
-
-
-def remove_sparkle(img: np.ndarray, cx=2640.0, cy=1423.75, a=52.0, alpha=0.52, soft=0.14) -> np.ndarray:
-    """
-    생성 도구가 덧씌운 반투명 흰색 네 갈래 별(워터마크)을 지운다.
-    덧씌움: 화면색 = (1-α)*원래색 + α*흰색  ->  원래색 = (화면색 - α*255) / (1-α)
-    별 모양은 속이 오목한 네 갈래 별(|x/a|^(2/3) + |y/a|^(2/3) <= 1)로 맞췄다. 용의 꼬리 윤곽선 위에 걸려 있어서
-    주변 색으로 메우면 윤곽선이 무너지기 때문에 이 방식을 쓴다.
-    """
-    x0, y0, x1, y1 = int(cx - 80), int(cy - 80), int(cx + 80), int(cy + 80)
-    yy, xx = np.mgrid[y0:y1, x0:x1]
-    d = np.abs((xx - cx) / a) ** (2 / 3) + np.abs((yy - cy) / a) ** (2 / 3)
-    al = (np.clip((1.0 - d) / soft + 0.5, 0, 1) * alpha)[..., None]
-    patch = img[y0:y1, x0:x1].astype(np.float32)
-    rec = np.clip((patch - al * 255.0) / np.maximum(1 - al, 1e-3), 0, 255)
-    # 별 가장자리에 남는 얇은 흰 테두리: 그 띠만 주변과 살짝 섞어 눈에 띄지 않게 한다 (띠 밖은 건드리지 않는다)
-    p = np.pad(rec, ((2, 2), (2, 2), (0, 0)), mode='edge')
-    blur = sum(p[dy:dy + rec.shape[0], dx:dx + rec.shape[1]] for dy in range(5) for dx in range(5)) / 25.0
-    ring = ((d > 0.80) & (d < 1.30))[..., None]
-    rec = np.where(ring, rec * 0.35 + blur * 0.65, rec)
-    out = img.copy()
-    out[y0:y1, x0:x1] = np.clip(rec, 0, 255).astype(img.dtype)
     return out
 
 
@@ -146,7 +123,8 @@ def dilate(mask: np.ndarray, n=1) -> np.ndarray:
 def cut_flame(img: np.ndarray):
     x0, y0, x1, y1 = FLAME_BOX
     crop = img[y0:y1, x0:x1].astype(np.int16)
-    warm = (crop[..., 0] - crop[..., 2]) > 45        # 불꽃은 주황, 노랑, 붉은 윤곽 (배경은 청록)
+    warm = ((crop[..., 0] - crop[..., 2]) > 110) & (crop[..., 0] >= crop[..., 1] - 30)   # 불꽃은 주황, 노랑, 붉은 윤곽 (풀밭은 초록이 빨강보다 훨씬 크다)
+    warm = dilate(erode(warm, 3), 3)                  # 가는 돌출(용 코끝 등)을 떼어 낸다
     return crop, largest(dilate(warm, 1))
 
 
@@ -169,16 +147,16 @@ def main():
     print('원본', img.shape[1], 'x', img.shape[0])
 
     # 1) 배경: 박혀 있는 UI 와 워터마크를 지운다
-    bg = img
-    for name, box in REGIONS.items():
-        bg = inpaint(bg, box); print('지움:', name)
-    bg = remove_sparkle(bg); print('지움: watermark')
+    PAD = 24                                                  # 위쪽 가장자리에 가까운 영역은 바깥 색을 잴 자리가 없어 윗줄을 복제해 덧붙인다
+    bg = np.pad(img, ((PAD, 0), (0, 0), (0, 0)), mode='edge')
+    for name, (x0, y0, x1, y1) in REGIONS.items():
+        bg = inpaint(bg, (x0, y0 + PAD, x1, y1 + PAD)); print('지움:', name)
+    bg = bg[PAD:]
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray(bg).resize(BG_SIZE, Image.LANCZOS).save(os.path.join(OUT, 'start_bg.jpg'), quality=88, optimize=True, progressive=True)
 
-    # 2) 브레스 불꽃 (워터마크만 지운 그림에서 오려낸다)
-    clean = remove_sparkle(img)
-    fc, ffg = cut_flame(clean)
+    # 2) 브레스 불꽃
+    fc, ffg = cut_flame(img)
     print('불꽃:', finish_cut(fc, ffg, 'breath_flame.png', width=FLAME_W).size)
 
 if __name__ == '__main__':

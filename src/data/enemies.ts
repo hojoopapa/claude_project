@@ -31,7 +31,7 @@ export interface EnemyDef {
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   goblin: { name: '고블린', hp: 40, speed: 55, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 4, tex: 'e_goblin', scale: 1, anim: 'walk', frames: { walk: ['e_goblin_walk1', 'e_goblin_walk2'], atk: ['e_goblin_stab1', 'e_goblin_stab2'] } },
-  wolf: { name: '늑대', hp: 32, speed: 100, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 5, tex: 'e_wolf', scale: 1, anim: 'walk' },
+  wolf: { name: '늑대', hp: 32, speed: 100, armor: 0, mr: 0, gold: 4, lives: 1, flying: false, dmg: 5, tex: 'e_wolf', scale: 1, anim: 'walk', frames: { walk: ['e_wolf_run1', 'e_wolf_run2'], atk: ['e_wolf_run1', 'e_wolf_run2'] } },
   orc: { name: '오크', hp: 170, speed: 40, armor: 0.45, mr: 0, gold: 10, lives: 2, flying: false, dmg: 9, tex: 'e_orc', scale: 1, anim: 'walk' },
   wisp: { name: '도깨비불', hp: 70, speed: 70, armor: 0, mr: 0.5, gold: 7, lives: 1, flying: true, dmg: 0, tex: 'e_wisp', scale: 1, anim: 'float', frames: { walk: ['e_wisp_idle1', 'e_wisp_idle2'], atk: ['e_wisp_idle1', 'e_wisp_atk'], hurt: 'e_wisp_atk' } },
   golem: { name: '바위 골렘', hp: 650, speed: 28, armor: 0.6, mr: 0, gold: 28, lives: 3, flying: false, dmg: 18, tex: 'e_golem', scale: 1, anim: 'heavy' },
