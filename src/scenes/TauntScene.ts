@@ -118,16 +118,18 @@ export class TauntScene extends Phaser.Scene {
 
     const bubble = this.add.container(PX + 480, PY + 125).setDepth(20).setScale(0.2).setAlpha(0);
     const g = this.add.graphics();
-    panel(g, -165, -88, 330, 176, { fill: 0x2a1218, border: 0xff6a4a, borderAlpha: 0.95, r: 20, shadow: true, alpha: 1 });
+    panel(g, -165, -96, 330, 192, { fill: 0x2a1218, border: 0xff6a4a, borderAlpha: 0.95, r: 20, shadow: true, alpha: 1 });
     // 용 입을 가리키는 꼬리: 말풍선 아래쪽에 붙이고, 붙는 부분의 테두리는 지운다
-    g.fillStyle(0x2a1218, 1).fillTriangle(-140, 86, -90, 86, -215, 122);
-    g.lineStyle(1.5, 0xff6a4a, 0.95).lineBetween(-140, 86, -215, 122).lineBetween(-215, 122, -90, 86);
-    g.lineStyle(3, 0x2a1218, 1).lineBetween(-138, 87, -92, 87);
+    g.fillStyle(0x2a1218, 1).fillTriangle(-140, 94, -90, 94, -215, 130);
+    g.lineStyle(1.5, 0xff6a4a, 0.95).lineBetween(-140, 94, -215, 130).lineBetween(-215, 130, -90, 94);
+    g.lineStyle(3, 0x2a1218, 1).lineBetween(-138, 95, -92, 95);
     bubble.add(g);
-    bubble.add(text(this, 0, -52, t('tauntLine'), 20, C.gold).setWordWrapWidth(300).setAlign('center'));
-    bubble.add(text(this, 0, 0, t('tauntAsk'), 17, C.text, { weight: '700' }).setWordWrapWidth(300).setAlign('center').setLineSpacing(5));
+    // 스테이지마다 다른 멘트: 첫 줄은 금색 제목, 둘째 줄은 본문 (레벨이 오를수록 더 도발적이다)
     const lv = LEVELS[Math.min(Math.max(this.level, 1), LEVELS.length) - 1];
-    bubble.add(text(this, 0, 58, t('tauntStage', { lv: lv.id, n: fmt(devStageScore(lv)) }), 13, C.red).setWordWrapWidth(300).setAlign('center'));
+    const [head, body] = t(`taunt.${lv.id}`).split('\n');
+    bubble.add(text(this, 0, -50, head, 18, C.gold).setWordWrapWidth(304).setAlign('center').setLineSpacing(3));
+    bubble.add(text(this, 0, 10, body ?? '', 15, C.text, { weight: '700' }).setWordWrapWidth(304).setAlign('center').setLineSpacing(4));
+    bubble.add(text(this, 0, 74, t('tauntStage', { lv: lv.id, n: fmt(devStageScore(lv)) }), 13, C.red).setWordWrapWidth(304).setAlign('center'));
     this.tweens.add({ targets: bubble, scale: 1, alpha: 1, duration: 260, ease: 'Back.Out' });
 
     // 크하하하! 웃음 글자가 용 머리 위에서 팡팡 커진다

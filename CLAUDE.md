@@ -79,3 +79,7 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 2. 20개 스테이지를 사람이 플레이해 보고 `power` 조정. 광고 제거와 영웅 자동 등장으로 5번 이후가 이전보다 쉬워졌다 (봇 시뮬레이션: 보통 난이도에서 12, 18, 20번만 패배). 필요하면 후반 `power`를 올린다.
 3. 실제 폰에서 터치·화면 확인 (버튼 크기와 건설 메뉴 설명은 보강함).
 4. 포털에 올릴 때 모의 광고(`src/ads.ts`)를 실제 광고 SDK로 교체.
+
+- **앱 아이콘**: 용 그림(docs/art/source/dragon_cutout.png)을 `scripts/make-icons.py`로 public/icons/*(favicon.ico, 32px, apple-touch 180, 192/512)에 만든다. index.html 링크와 public/manifest.webmanifest 는 모두 상대 경로(하위 폴더 배포 대응).
+- **스테이지별 도발 멘트**: i18n `taunt.1`~`taunt.20`(6개 언어, `첫줄
+본문`). 레벨이 오를수록 더 도발적. TauntScene 풍선이 첫 줄(금색)/본문/개발자 기록 순으로 보여준다. 예전 `tauntLine`/`tauntAsk` 키는 제거.
