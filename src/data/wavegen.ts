@@ -18,10 +18,10 @@ const BASE0 = 7, BASE_STEP = 0.9, WAVE_GROWTH = 0.4;
 const REF_LAST = 7;
 
 /**
- * 스테이지별 웨이브 수: 1~5번은 5개로 시작하고, 5번째 스테이지마다 1개씩 늘어난다 (6~10번 6개, 11~15번 7개, 16~20번 8개).
- * 웨이브가 적어도 마지막 웨이브는 예전과 같은 강도가 되도록 웨이브마다 강도를 진행률로 다시 계산한다 (genWaves).
+ * 스테이지별 웨이브 수 = 기본(5개로 시작, 5번째 스테이지마다 1개씩 증가) + 추가분(1번 스테이지 1개 ~ 20번 스테이지 7개를 직선으로 이어 반올림).
+ * 1번 6개 ... 20번 15개. 웨이브가 많아도 마지막 웨이브는 예전과 같은 강도가 되도록 웨이브마다 강도를 진행률로 다시 계산한다 (genWaves).
  */
-export const waveCount = (stage: number): number => 5 + Math.floor((stage - 1) / 5);
+export const waveCount = (stage: number): number => 5 + Math.floor((stage - 1) / 5) + Math.round(1 + (6 * (stage - 1)) / 19);
 
 /** 웨이브 N개일 때 모든 웨이브의 예산 합 (기준 예산 단위) */
 const budgetSum = (n: number): number => {

@@ -73,7 +73,7 @@ const AIR = (n: number) => n; // 공중 경로 번호 표기용 (지상 경로 �
 
 export const LEVELS: LevelDef[] = [
   {
-    id: 1, name: 'Meadow Gate', theme: 'meadow', startGold: 260 + catchUpGold(1, 5), lives: 20, par: 276,
+    id: 1, name: 'Meadow Gate', theme: 'meadow', startGold: 260 + catchUpGold(1, 6), lives: 20, par: 276,
     paths: [{ pts: line([-30, 130], [220, 130], [220, 400], [480, 400], [480, 160], [740, 160], [740, 420], [990, 420]) }],
     spots: [
       p(100, 200), p(100, 60), p(290, 250), p(150, 300), p(350, 330), p(350, 470),
@@ -82,6 +82,7 @@ export const LEVELS: LevelDef[] = [
     // 튜토리얼 스테이지: 1단계 타워만 쓸 수 있어서 방어구가 높은 적은 적게 나온다.
     waves: [
       { time: 24, groups: [g('goblin', 8, 1.2)] },
+      { time: 24, groups: [g('goblin', 10, 1.0)] },
       { time: 26, groups: [g('goblin', 8, 0.9), g('orc', 1, 3, 5)] },
       { time: 28, groups: [g('goblin', 12, 0.7), g('orc', 2, 2.5, 6)] },
       { time: 30, groups: [g('orc', 4, 2.2), g('wolf', 8, 0.6, 5)] },
