@@ -20,7 +20,14 @@ export interface World {
   readonly hpMul: number;
   /** 파괴 공격(breath)이 있는 보스가 움직일 때마다 불린다: 발밑 파괴와 브레스 */
   bossTick(e: Enemy, dt: number): void;
+  /** 돌아다니는 보스(roams)가 다음에 날아갈 곳 */
+  roamTarget(e: Enemy): Vec;
 }
+
+/** 돌아다니는 보스가 경로를 따라 이 거리(px)만큼 들어온 뒤부터 자유롭게 날아다닌다 */
+const ROAM_ENTER = 170;
+/** 돌아다닐 때의 속도 배율 (경로를 따라올 때보다 빠르게) */
+const ROAM_SPEED = 1.8;
 
 /** 적을 막아 세우는 것 (병사, 영웅, 벽) */
 export interface Blocker { x: number; y: number; dead: boolean; hurt(n: number): void }
@@ -69,6 +76,8 @@ export class Enemy {
   breathT = NaN;                  // 다음 브레스까지 남은 시간 (breath 가 있는 보스만 씀)
   chargeT = 0;                    // 브레스를 모으는 중인 남은 시간 (이 동안 sprite.alt 그림을 쓴다)
   hurtT = 0;                      // 맞은 뒤 놀란 표정을 유지하는 남은 시간 (frames.hurt 가 있는 적)
+  private roamTo: Vec | null = null;   // 돌아다니는 보스의 다음 목적지
+  private roamHold = 0;                // 목적지에 도착해서 머무는 남은 시간
   facing: 1 | -1 = 1;             // 가는 방향 (1 = 오른쪽)
   private atk = 0.5;
   private flash = 0;
@@ -97,6 +106,34 @@ export class Enemy {
     this.img.setScale(this.baseScale).setAlpha(0);
     if (sp?.facesLeft) this.img.setFlipX(true);          // 원본이 왼쪽을 보고 있으니 처음(오른쪽으로 감)에는 뒤집는다
     this.shadow = makeShadow(w, this.img, this.def.flying).setAlpha(0);
+  }
+
+  /**
+   * 돌아다니기: 목적지(타워와 병사 주변)까지 날아가 2~4초 머물다가 다음 목적지로 간다. 죽을 때까지 끝나지 않고, 경로 끝에 닿아도 나가지 않는다.
+   * 경로 거리(d)를 끝 가까이로 두어 타워가 가장 먼저 노리게 한다 (놓아두면 아무도 못 잡는 보스가 되지 않도록).
+   */
+  private roam(dt: number) {
+    this.d = this.path.total * 0.99;
+    const before = this.x;
+    let moving = false;
+    if (this.roamHold > 0) this.roamHold -= dt;
+    else {
+      if (!this.roamTo) this.roamTo = this.w.roamTarget(this);
+      const dd = dist(this.roamTo, this);
+      if (dd < 6) { this.roamTo = null; this.roamHold = 2 + Math.random() * 2; }
+      else {
+        const step = Math.min(dd, this.def.speed * ROAM_SPEED * this.slowMul * dt);
+        this.x += ((this.roamTo.x - this.x) / dd) * step;
+        this.y += ((this.roamTo.y - this.y) / dd) * step;
+        moving = true;
+      }
+    }
+    if (Math.abs(this.x - before) > 0.01) {
+      this.facing = this.x < before ? -1 : 1;
+      this.img.setFlipX(this.def.sprite?.facesLeft ? this.facing === 1 : this.facing === -1);
+    }
+    this.applyPose(moving);
+    if (this.def.breath) this.w.bossTick(this, dt);
   }
 
   /** 입 위치. 용이 브레스를 쏘는 곳 */
@@ -212,6 +249,7 @@ export class Enemy {
       this.applyPose(false);
       return;
     }
+    if (this.def.roams && this.d >= ROAM_ENTER) { this.roam(dt); return; }   // 화면에 들어온 보스 용은 나가지 않고 돌아다닌다
     const before = this.x;
     this.d += this.def.speed * this.slowMul * dt;
     if (this.d >= this.path.total) {

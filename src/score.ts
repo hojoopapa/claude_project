@@ -16,7 +16,7 @@ const BASE = 1000, PER_LIFE = 120, PER_SECOND = 6;
 
 /** 기준 시간(초): 웨이브가 자동으로 이어졌을 때의 총 시간 + 여유. 이보다 빨리 끝내면 시간 보너스. */
 export function parTime(level: LevelDef): number {
-  return level.waves.reduce((a, w) => a + w.time, 0) + 90;
+  return level.par ?? level.waves.reduce((a, w) => a + w.time, 0) + 90;   // par 가 있으면 그 값 (웨이브 수를 바꿔도 점수 기준이 흔들리지 않게)
 }
 
 /**

@@ -14,6 +14,37 @@ const FLYING = new Set<EnemyKind>(['wisp', 'bat', 'drake']);
 /** 난이도 곡선: 1웨이브 예산 = BASE0 + BASE_STEP*(스테이지-1), 웨이브마다 WAVE_GROWTH 배씩 증가 */
 const BASE0 = 7, BASE_STEP = 0.9, WAVE_GROWTH = 0.4;
 
+/** 웨이브 수가 8개였을 때의 곡선을 기준으로 삼는다 (마지막 웨이브 = 기준 곡선의 8번째 웨이브) */
+const REF_LAST = 7;
+
+/**
+ * 스테이지별 웨이브 수: 1~5번은 5개로 시작하고, 5번째 스테이지마다 1개씩 늘어난다 (6~10번 6개, 11~15번 7개, 16~20번 8개).
+ * 웨이브가 적어도 마지막 웨이브는 예전과 같은 강도가 되도록 웨이브마다 강도를 진행률로 다시 계산한다 (genWaves).
+ */
+export const waveCount = (stage: number): number => 5 + Math.floor((stage - 1) / 5);
+
+/** 웨이브 N개일 때 모든 웨이브의 예산 합 (기준 예산 단위) */
+const budgetSum = (n: number): number => {
+  let s = 0;
+  for (let w = 0; w < n; w++) s += 1 + WAVE_GROWTH * (n > 1 ? (w / (n - 1)) * REF_LAST : REF_LAST);
+  return s;
+};
+
+/** 적 한 마리를 잡을 때 얻는 골드를 위협 점수 1점당 평균으로 본 값 (enemies.ts 의 gold / THREAT) */
+const GOLD_PER_THREAT = 3.3;
+/** 줄어든 웨이브에서 못 버는 골드 중 시작 골드로 보충해 주는 비율 */
+const CATCH_UP = 0.85;
+
+/**
+ * 웨이브가 8개보다 적으면 적을 덜 잡아서 골드를 덜 번다. 마지막 웨이브는 그대로 강하므로,
+ * 못 버는 골드의 일부를 시작 골드에 더해서 난이도를 맞춘다. (10골드 단위로 반올림)
+ */
+export function catchUpGold(stage: number, waves: number, power = 1): number {
+  const base = (BASE0 + BASE_STEP * (stage - 1)) * power;
+  const missing = base * (budgetSum(REF_LAST + 1) - budgetSum(waves));
+  return Math.max(0, Math.round((missing * GOLD_PER_THREAT * CATCH_UP) / 10) * 10);
+}
+
 export interface PoolEntry { kind: EnemyKind; w: number; from?: number }
 
 export interface GenOpts {
@@ -42,13 +73,15 @@ function rng(a: number) {
 
 export function genWaves(o: GenOpts): Wave[] {
   const rnd = rng(o.seed * 104729 + o.stage);
-  const N = o.waves ?? 8;
+  const N = o.waves ?? waveCount(o.stage);
   const base = (BASE0 + BASE_STEP * (o.stage - 1)) * (o.power ?? 1);
   const out: Wave[] = [];
   for (let w = 0; w < N; w++) {
-    const budget = base * (1 + WAVE_GROWTH * w);
-    const nGroups = w < 2 ? 1 : w < 5 ? 2 : 3;
-    const avail = o.pool.filter((p) => (p.from ?? 0) <= w);
+    // 진행률(0~1)을 8웨이브 기준 곡선의 위치로 바꿔서 강도, 적 종류, 그룹 수를 정한다
+    const eq = N > 1 ? (w / (N - 1)) * REF_LAST : REF_LAST;
+    const budget = base * (1 + WAVE_GROWTH * eq);
+    const nGroups = eq < 2 ? 1 : eq < 5 ? 2 : 3;
+    const avail = o.pool.filter((p) => (p.from ?? 0) <= eq);
     const used = new Set<EnemyKind>();
     const groups: WaveGroup[] = [];
     let offset = 0;

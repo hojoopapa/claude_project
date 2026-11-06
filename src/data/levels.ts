@@ -1,7 +1,7 @@
 import type { Vec } from '../game/path.ts';
 import type { EnemyKind } from './enemies.ts';
 import { autoSpots } from './autospots.ts';
-import { genWaves, type PoolEntry } from './wavegen.ts';
+import { catchUpGold, genWaves, waveCount, type PoolEntry } from './wavegen.ts';
 
 export interface WaveGroup {
   kind: EnemyKind;
@@ -28,6 +28,11 @@ export interface LevelDef {
   waves: Wave[];
   startGold: number;
   lives: number;
+  /**
+   * 점수의 시간 보너스 기준 시간(초). 웨이브 수가 8개였을 때의 값으로 고정해서, 웨이브 수를 바꿔도
+   * 만점과 개발자 기록(만점-1)이 달라지지 않게 한다 (score.ts 의 parTime).
+   */
+  par?: number;
 }
 
 const p = (x: number, y: number): Vec => ({ x, y });
@@ -55,16 +60,16 @@ function make(sp: Spec): LevelDef {
   const spots = Array.isArray(sp.spots) ? sp.spots : autoSpots(sp.ground, sp.spots ?? 14);
   const waves = genWaves({
     seed: sp.id, stage: sp.id, pool: sp.pool, lanes: sp.ground.length,
-    airPath: sp.air?.length ? sp.ground.length : undefined, boss: sp.boss, power: sp.power,
+    airPath: sp.air?.length ? sp.ground.length : undefined, boss: sp.boss, power: sp.power, waves: waveCount(sp.id),
   });
-  return { id: sp.id, name: sp.name, theme: sp.theme, paths, spots, waves, startGold: Math.min(480, 260 + 12 * (sp.id - 1)), lives: 20 };
+  return { id: sp.id, name: sp.name, theme: sp.theme, paths, spots, waves, startGold: Math.min(480, 260 + 12 * (sp.id - 1)) + catchUpGold(sp.id, waves.length, sp.power), lives: 20, par: 251 };
 }
 
 const AIR = (n: number) => n; // 공중 경로 번호 표기용 (지상 경로 수와 같다)
 
 export const LEVELS: LevelDef[] = [
   {
-    id: 1, name: 'Meadow Gate', theme: 'meadow', startGold: 260, lives: 20,
+    id: 1, name: 'Meadow Gate', theme: 'meadow', startGold: 260 + catchUpGold(1, 5), lives: 20, par: 276,
     paths: [{ pts: line([-30, 130], [220, 130], [220, 400], [480, 400], [480, 160], [740, 160], [740, 420], [990, 420]) }],
     spots: [
       p(100, 200), p(100, 60), p(290, 250), p(150, 300), p(350, 330), p(350, 470),
@@ -73,11 +78,8 @@ export const LEVELS: LevelDef[] = [
     // 튜토리얼 스테이지: 1단계 타워만 쓸 수 있어서 방어구가 높은 적은 적게 나온다.
     waves: [
       { time: 24, groups: [g('goblin', 8, 1.2)] },
-      { time: 24, groups: [g('goblin', 10, 1.0), g('wolf', 3, 0.9, 6)] },
       { time: 26, groups: [g('goblin', 8, 0.9), g('orc', 1, 3, 5)] },
-      { time: 26, groups: [g('wolf', 8, 0.6), g('goblin', 8, 0.8, 7)] },
       { time: 28, groups: [g('goblin', 12, 0.7), g('orc', 2, 2.5, 6)] },
-      { time: 28, groups: [g('wolf', 6, 0.6), g('orc', 2, 2.5, 3), g('goblin', 8, 0.7, 8)] },
       { time: 30, groups: [g('orc', 4, 2.2), g('wolf', 8, 0.6, 5)] },
       { time: 0, groups: [g('goblin', 14, 0.7), g('orc', 2, 2.8, 6), g('wolf', 5, 0.6, 12)] },
     ],

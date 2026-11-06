@@ -210,6 +210,21 @@ export class GameScene extends Phaser.Scene implements World {
     if (tgt) this.startBreath(e, tgt, b.radius);
   }
 
+  /**
+   * 돌아다니는 보스 용의 다음 목적지: 대부분(85%)은 타워나 병사 하나를 골라 그 둘레(55~100px 떨어진 곳)로,
+   * 나머지는 화면 안 아무 곳이나. 바로 위에 눌러앉으면 발밑 공격(stomp)이 계속 걸리므로 일부러 조금 떨어진 곳을 고른다.
+   */
+  roamTarget(_e: Enemy): Vec {
+    const marks: Vec[] = [...this.towers.map((tw) => tw.pos), ...this.soldiers.filter((s) => !s.dead).map((s) => ({ x: s.x, y: s.y }))];
+    let x: number, y: number;
+    if (marks.length && Math.random() < 0.85) {
+      const m = marks[Math.floor(Math.random() * marks.length)];
+      const a = Math.random() * Math.PI * 2, r = 55 + Math.random() * 45;
+      x = m.x + Math.cos(a) * r; y = m.y + Math.sin(a) * r;
+    } else { x = 90 + Math.random() * (GAME_W - 180); y = 90 + Math.random() * 320; }
+    return { x: Phaser.Math.Clamp(x, 60, GAME_W - 60), y: Phaser.Math.Clamp(y, 80, GAME_H - 130) };
+  }
+
   /** 반경 안의 타워는 불태워 잠깐 멈추게 하고(부수지 않는다), 병사, 영웅, 벽은 부순다 */
   private smashAt(x: number, y: number, r: number) {
     let hit = false;

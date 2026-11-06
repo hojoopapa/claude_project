@@ -21,7 +21,7 @@ export const PNG_FRAMES = [
  * SVG 대신 PNG 로 바꿔 쓰는 그림 (키는 SVG 와 같다): 궁수탑 1~3레벨(scripts/slice-archer-tower.py)과
  * 기사 영웅의 평소 그림(scripts/slice-dragon-knight.py). 같은 키의 SVG 는 불러오지 않는다 (BootScene).
  */
-export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight'] as const;
+export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight', 'spot'] as const;   // spot = 건물 자리 (scripts/slice-spot.py)
 
 /** SVG 로 불러온 텍스처 키 */
 const loaded = new Set<string>();
