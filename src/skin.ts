@@ -16,13 +16,21 @@ export const PNG_FRAMES = [
   'h_knight_atk',                        // 기사 영웅이 공격하는 순간 (평소 그림 h_knight 는 PNG_REPLACE)
   'e_wolf_run1', 'e_wolf_run2',           // 늑대: 달리기 두 장 (scripts/slice-wolf.py)
   'e_wisp_idle1', 'e_wisp_idle2', 'e_wisp_atk',   // 도깨비불: 날아다닐 때 번갈아 / 맞았을 때 (scripts/slice-wisp.py)
+  // 오크, 주술사, 망령, 골렘, 오우거 군주: 걷기 2장 + 공격 2장, 박쥐: 날갯짓 2장, 병사 1~3레벨, 마법사 영웅 공격 컷 (scripts/fit-sprites.py)
+  ...['orc', 'shaman', 'wraith', 'golem', 'ogre'].flatMap((k) => ['walk1', 'walk2', 'atk1', 'atk2'].map((f) => `e_${k}_${f}`)),
+  'e_bat_1', 'e_bat_2',
+  'soldier_1', 'soldier_2', 'soldier_3',
+  'h_sorc_atk',
 ] as const;
 
 /**
  * SVG 대신 PNG 로 바꿔 쓰는 그림 (키는 SVG 와 같다): 궁수탑 1~3레벨(scripts/slice-archer-tower.py)과
  * 기사 영웅의 평소 그림(scripts/slice-dragon-knight.py). 같은 키의 SVG 는 불러오지 않는다 (BootScene).
  */
-export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight', 'spot'] as const;   // spot = 건물 자리 (scripts/slice-spot.py)
+export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight', 'spot',
+  't_barracks_1', 't_barracks_2', 't_barracks_3', 't_frost_1', 't_frost_2', 't_frost_3', 't_cannon_1', 't_cannon_2', 't_cannon_3',   // scripts/fit-sprites.py
+  'h_sorc',
+] as const;   // spot = 건물 자리 (scripts/slice-spot.py)
 
 /** SVG 로 불러온 텍스처 키 */
 const loaded = new Set<string>();

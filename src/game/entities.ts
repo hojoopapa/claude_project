@@ -178,7 +178,7 @@ export class Enemy {
     const engaged = !!this.blocker && !this.blocker.dead && dist(this.blocker, this) < 30;
     const key = fr.hurt && this.hurtT > 0 && hasSkinTexture(fr.hurt) ? fr.hurt
       : engaged ? (this.swing > 0 ? fr.atk[1] : fr.atk[0])
-      : fr.walk[moving ? Math.floor(this.anim / 0.22) % 2 : 0];
+      : fr.walk[moving ? Math.floor(this.anim / (fr.dt ?? 0.22)) % 2 : 0];
     if (this.img.texture.key !== key) this.img.setTexture(key);
     return true;
   }
@@ -290,15 +290,23 @@ export class Soldier {
 
   constructor(
     protected w: World, public home: Vec, public dmg: number, hp: number,
-    public leash = 90, public life = Infinity, tex = 'soldier',
+    public leash = 90, public life = Infinity, tex = 'soldier', tier?: number,
   ) {
     this.hp = this.maxHp = hp;
     this.x = home.x; this.y = home.y;
-    const tx = texFor(tex);
+    const tx = texFor(tex, tier);
     this.base = tx.scale;
     this.idleKey = tx.key;
     this.img = w.gs.add.image(this.x, this.y, tx.key).setScale(tx.scale).setAlpha(0);
     this.shadow = makeShadow(w, this.img).setAlpha(0);
+  }
+
+  /** 병영 레벨이 오르면 병사 그림(soldier_1~3)도 바꾼다 */
+  setTier(tier: number) {
+    const tx = texFor('soldier', tier);
+    this.base = tx.scale;
+    this.idleKey = tx.key;
+    this.img.setTexture(tx.key);
   }
 
   hurt(n: number) {
@@ -503,6 +511,7 @@ export class Tower {
       if (sl.s && !sl.s.dead) {
         sl.s.maxHp = this.lv.soldierHp!; sl.s.hp = sl.s.maxHp;
         sl.s.dmg = this.lv.dmg; sl.s.leash = this.lv.range;
+        sl.s.setTier(this.level);
       }
     }
   }
@@ -626,7 +635,7 @@ export class Tower {
       sl.s = null;
       if ((sl.respawn -= dt) > 0) return;
       const home = this.slotHome(i);
-      const s = new Soldier(this.w, home, this.lv.dmg, this.lv.soldierHp!, this.lv.range);
+      const s = new Soldier(this.w, home, this.lv.dmg, this.lv.soldierHp!, this.lv.range, Infinity, 'soldier', this.level);
       s.x = this.pos.x; s.y = this.pos.y;
       this.w.soldiers.push(s);
       sl.s = s;
