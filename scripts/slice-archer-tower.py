@@ -19,9 +19,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'docs', 'art', 'source', 'archer_123.png')
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, '..', 'public', 'skins', 'png')
 
-# 시트에서 각 그림이 있는 영역 (x0, y0, x1, y1). 윗줄과 아랫줄 사이 빈 틈(왼쪽 y 440~490, 오른쪽 y 430~445)에서 나눈다.
-# 오른쪽 아래 탑의 뾰족한 끝이 오른쪽 위 칸에 걸쳐 있지만 LV2 와 떨어져 있어서 가장 큰 덩어리만 남기면 사라진다.
-CROPS = {'t_archer_1': (0, 0, 380, 465), 't_archer_2': (380, 0, 759, 440), 't_archer_3': (0, 465, 380, 1023)}
+# 시트에서 각 그림이 있는 영역 (x0, y0, x1, y1). LV3 탑이 가운데 아래에 있고 뾰족한 끝이 윗줄 높이(y 465)까지 올라오므로
+# 칸을 반으로 나누지 않고 그림마다 영역을 잡는다. 옆 그림이나 글자 조각이 영역에 걸쳐도 가장 큰 덩어리만 남기면 사라진다.
+CROPS = {'t_archer_1': (0, 0, 378, 478), 't_archer_2': (380, 0, 765, 478), 't_archer_3': (190, 440, 600, 1024)}
 LV1_H = 132        # LV1 탑 높이(2배 해상도 기준, 화면에서는 66px). 나머지는 같은 비율로 줄인다
 FOOT = 0.90        # 탑 바닥이 이미지 높이의 몇 % 지점에 오게 할지 (게임의 기준점 y 와 같다)
 PAD = 8

@@ -27,13 +27,17 @@ SETS = {
     'knight': {'height': 112, 'frames': [('h_knight', (150, 320, 360, 572)), ('h_knight_atk', (540, 320, 900, 572))]},
 }
 PAD = 6
+# 칼 효과선에 붙어 있는 "SLASH" 같은 글자는 덩어리가 이어져 있어서 안 지워진다: 시트 좌표 영역을 미리 투명 처리한다 (x0, y0, x1, y1)
+ERASE = {'h_knight_atk': (770, 478, 900, 525)}
 # 분홍색 칼 궤적 효과가 반투명 회색 얼룩으로 남는 컷: 투명도를 이 구간에서 0~1 로 다시 펴서 반투명한 효과만 지운다 (게임에서 따로 그린다)
 SHARPEN = {'h_knight_atk': (0.6, 0.92)}
 
 
-def extract(img: Image.Image, box, sharpen=None) -> Image.Image:
+def extract(img: Image.Image, box, sharpen=None, erase=None) -> Image.Image:
     cell = np.array(img.crop(box).convert('RGB'))
     a = keyed_alpha(cell)
+    if erase:
+        a[max(0, erase[1] - box[1]):max(0, erase[3] - box[1]), max(0, erase[0] - box[0]):max(0, erase[2] - box[0])] = 0.0
     a = a * dilate(largest_component(a > 0.5), 2)
     if sharpen:
         lo, hi = sharpen
@@ -47,7 +51,7 @@ def main():
     img = Image.open(SRC)
     os.makedirs(OUT, exist_ok=True)
     for cname, cfg in SETS.items():
-        frames = [(name, extract(img, box, SHARPEN.get(name))) for name, box in cfg['frames']]
+        frames = [(name, extract(img, box, SHARPEN.get(name), ERASE.get(name))) for name, box in cfg['frames']]
         scale = cfg['height'] / frames[0][1].height                 # 첫 장 높이를 기준으로 같은 비율로 줄인다
         rs, cxs = [], []
         for name, f in frames:
