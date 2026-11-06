@@ -60,16 +60,17 @@ const CURVY_FROM = 4;
 
 function make(sp: Spec): LevelDef {
   const ground = sp.id >= CURVY_FROM ? sp.ground.map((pts) => curvePath(pts, sp.id * 0.9)) : sp.ground;
-  const paths = [...ground.map((pts) => ({ pts })), ...(sp.air ?? []).map((pts) => ({ pts, air: true }))];
+  // 비행 유닛도 지상 유닛과 같은 길을 따라간다 (2026-11-06 결정). 스테이지 데이터의 air 직선 경로는 더 이상 쓰지 않는다
+  const paths = ground.map((pts) => ({ pts }));
   const spots = Array.isArray(sp.spots) ? sp.spots : autoSpots(ground, sp.spots ?? 14);
   const waves = genWaves({
     seed: sp.id, stage: sp.id, pool: sp.pool, lanes: sp.ground.length,
-    airPath: sp.air?.length ? sp.ground.length : undefined, boss: sp.boss, power: sp.power, waves: waveCount(sp.id),
+    boss: sp.boss, power: sp.power, waves: waveCount(sp.id),
   });
   return { id: sp.id, name: sp.name, theme: sp.theme, paths, spots, waves, startGold: Math.min(480, 260 + 12 * (sp.id - 1)) + catchUpGold(sp.id, waves.length, sp.power), lives: 20, par: 251 };
 }
 
-const AIR = (n: number) => n; // 공중 경로 번호 표기용 (지상 경로 수와 같다)
+const AIR = (_n: number) => 0; // 예전 공중 경로 번호 표기. 비행 유닛도 지상 길을 쓰므로 첫 번째 길로 보낸다
 
 export const LEVELS: LevelDef[] = [
   {

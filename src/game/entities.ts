@@ -283,7 +283,7 @@ export class Soldier {
   protected swingDir = 1;
   protected pop = 0;
   private born = 0;
-  private base: number;
+  protected base: number;
   private idleKey: string;
   protected atkTex: string | null = null;     // 공격하는 순간에 바꿔 쓰는 그림 (영웅 기사)
   private shadow: Phaser.GameObjects.Ellipse;
@@ -696,6 +696,8 @@ export class Hero extends Soldier {
     super(w, home, d.dmg, d.hp, d.range, Infinity, d.tex);
     if (d.atkTex && hasSkinTexture(d.atkTex)) this.atkTex = d.atkTex;
     this.kind = kind;
+    this.base *= d.scale ?? 1;
+    this.img.setScale(this.base);
     this.atkCd = d.cd;
   }
 

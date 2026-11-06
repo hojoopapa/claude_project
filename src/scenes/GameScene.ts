@@ -914,7 +914,7 @@ export class GameScene extends Phaser.Scene implements World {
       this.spellCd.reinf = REINF_CD;
       for (let i = 0; i < 2; i++) {
         const home = { x: x + (i ? 16 : -16), y: y + 6 };
-        this.soldiers.push(new Soldier(this, home, 9, 90, 110, 20));
+        this.soldiers.push(new Soldier(this, home, 9, 90, 110, 20, 'soldier_reinf'));
       }
       this.splashFx(x, y, 28, 0x4aa3ff);
     }

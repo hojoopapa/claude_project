@@ -19,7 +19,7 @@ export const PNG_FRAMES = [
   // 오크, 주술사, 망령, 골렘, 오우거 군주: 걷기 2장 + 공격 2장, 박쥐: 날갯짓 2장, 병사 1~3레벨, 마법사 영웅 공격 컷 (scripts/fit-sprites.py)
   ...['orc', 'shaman', 'wraith', 'golem', 'ogre'].flatMap((k) => ['walk1', 'walk2', 'atk1', 'atk2'].map((f) => `e_${k}_${f}`)),
   'e_bat_1', 'e_bat_2',
-  'soldier_1', 'soldier_2', 'soldier_3',
+  'soldier_1', 'soldier_2', 'soldier_3', 'soldier_reinf',   // soldier_reinf: 지원군(붉은색)
   'h_sorc_atk',
 ] as const;
 

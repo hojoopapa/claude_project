@@ -74,6 +74,18 @@ def cx_of(im: Image.Image, low_only: bool = False) -> float:
     return float((a.sum(axis=0) * np.arange(im.width)).sum() / a.sum())
 
 
+def recolor(im: Image.Image) -> Image.Image:
+    """색조 170~270도(파랑 계열)이고 채도가 있는 픽셀만 붉은색 쪽(-215도)으로 돌린다. 은색 갑옷, 살색, 갈색은 그대로 둔다."""
+    a = np.array(im.convert('RGBA'))
+    hsv = np.array(Image.fromarray(a[..., :3]).convert('HSV')).astype(np.float32)
+    h, s = hsv[..., 0] * 360 / 255, hsv[..., 1] / 255
+    m = (h > 170) & (h < 270) & (s > 0.22) & (a[..., 3] > 0)
+    hsv[..., 0] = np.where(m, (h - 215) % 360, h) * 255 / 360
+    out = a.copy()
+    out[..., :3] = np.array(Image.fromarray(hsv.astype(np.uint8), 'HSV').convert('RGB'))
+    return Image.fromarray(out)
+
+
 def pack(frames: dict, foot_frac: float | None = None, low_only: bool = False):
     """같은 캔버스에 몸 중심은 가운데, 발은 아래(foot_frac 이 있으면 그 높이)로 맞춰 저장한다."""
     cxs = {n: cx_of(f, low_only) for n, f in frames.items()}
@@ -101,6 +113,9 @@ def main():
     sol = [load(f'soldier_lv{i}') for i in (1, 2, 3)]
     s = SOLDIER_LV1_H / sol[0].height
     pack({f'soldier_{i + 1}': resize(im, s) for i, im in enumerate(sol)})
+    # 지원군(스펠): 병사 2레벨 그림에서 파란 계열(방패, 옷)만 붉은색으로 바꿔 아군 병영 병사와 구별한다
+    ref = Image.open(os.path.join(OUT, 'soldier_2.png'))
+    recolor(ref).save(os.path.join(OUT, 'soldier_reinf.png'), optimize=True)
     # 마법사 영웅: 공격 컷은 오른쪽 마법 구체를 빼고 몸만 쓴다 (구체는 게임이 투사체로 따로 쏜다)
     idle, atk = load('sorc_1'), load('sorc_2', max_x=380)
     s = SORC_H / idle.height
