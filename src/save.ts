@@ -100,3 +100,19 @@ export function getDifficulty(): 0 | 1 | 2 {
 export function setDifficulty(v: 0 | 1 | 2): void {
   try { localStorage.setItem(DIFF_KEY, String(v)); } catch { /* ignore */ }
 }
+
+const HERO_KEY = 'realmguard.heroes.v1';
+export interface HeroSave { keep: boolean; xp: { knight: number; sorc: number } }
+
+/** 영웅 경험치. keep 이 true 면(긴 광고를 본 뒤) 스테이지가 바뀌어도 경험치를 이어 간다 */
+export function getHeroSave(): HeroSave {
+  try {
+    const d = JSON.parse(localStorage.getItem(HERO_KEY) ?? '{}');
+    if (d.keep) return { keep: true, xp: { knight: Number(d.xp?.knight) || 0, sorc: Number(d.xp?.sorc) || 0 } };
+  } catch { /* ignore */ }
+  return { keep: false, xp: { knight: 0, sorc: 0 } };
+}
+
+export function setHeroSave(s: HeroSave): void {
+  try { localStorage.setItem(HERO_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}

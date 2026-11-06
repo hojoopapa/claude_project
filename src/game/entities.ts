@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { ENEMIES, EnemyDef, EnemyKind } from '../data/enemies';
 import { TOWERS, TowerKind, TowerLvl, SELL_RATIO } from '../data/towers';
-import { HEROES, HeroKind } from '../data/heroes';
+import { HEROES, HeroKind, heroStats } from '../data/heroes';
 import { WALL_REACH, WallTier } from '../data/walls';
 import { PathData, Vec } from './path';
 import { hasSkinTexture, texFor } from '../skin';
 import { play } from '../sound';
+import { text } from '../ui';
 
 /** 엔티티가 게임 상태에 접근하는 창구 */
 export interface World {
@@ -14,6 +15,8 @@ export interface World {
   soldiers: Soldier[];
   projs: Projectile[];
   gainGold(n: number, x: number, y: number): void;
+  /** 적을 처치했을 때 영웅 경험치로 쌓는다 */
+  gainXp(n: number): void;
   leak(lives: number): void;
   splashFx(x: number, y: number, r: number, color: number): void;
   /** 난이도에 따른 적 체력 배율 */
@@ -165,7 +168,7 @@ export class Enemy {
     if (killed) play('die');
     if (killed) vanish(this.w, this.img, this.def.flying ? 28 : -6, (this.x % 2 < 1 ? 1 : -1) * (this.def.flying ? 50 : 24), this.def.flying ? 340 : 260);
     else vanish(this.w, this.img, 0, 0, 180);
-    if (killed) this.w.gainGold(this.def.gold, this.x, this.y);
+    if (killed) { this.w.gainGold(this.def.gold, this.x, this.y); this.w.gainXp(this.def.gold); }
   }
 
   /**
@@ -691,7 +694,11 @@ export class Hero extends Soldier {
   private cd = 0;
   private regenT = 0;
 
-  constructor(w: World, kind: HeroKind, home: Vec) {
+  /** 현재 레벨과 머리 위 표시 */
+  lv = 1;
+  private lvText: Phaser.GameObjects.Text;
+
+  constructor(w: World, kind: HeroKind, home: Vec, lv = 1) {
     const d = HEROES[kind];
     super(w, home, d.dmg, d.hp, d.range, Infinity, d.tex);
     if (d.atkTex && hasSkinTexture(d.atkTex)) this.atkTex = d.atkTex;
@@ -699,15 +706,39 @@ export class Hero extends Soldier {
     this.base *= d.scale ?? 1;
     this.img.setScale(this.base);
     this.atkCd = d.cd;
+    this.lvText = text(w.gs, home.x, home.y - 38, '', 11, '#ffe066', { stroke: 3 }).setDepth(960);
+    this.setLevel(lv);
+  }
+
+  /** 레벨에 맞춰 공격력, 체력, 사거리를 정하고 체력을 가득 채운다 (레벨업과 생성 때) */
+  setLevel(lv: number) {
+    const s = heroStats(this.kind, lv);
+    this.lv = lv;
+    this.dmg = s.dmg;
+    this.maxHp = s.hp;
+    this.hp = s.hp;
+    this.leash = s.range;
+    this.lvText.setText(`Lv.${lv}`);
+  }
+
+  kill() {
+    super.kill();
+    this.lvText.destroy();
   }
 
   update(dt: number) {
     const d = HEROES[this.kind];
-    if (d.ranged) { this.updateRanged(dt, d.range, d.dmg, d.cd); return; }
+    if (d.ranged) { this.updateRanged(dt, this.leash, this.dmg, d.cd); this.placeLabel(); return; }
     super.update(dt);
     if (this.dead) return;
+    this.placeLabel();
     this.regenT = this.target ? 0 : this.regenT + dt;
     if (!this.target && this.regenT > 2) this.hp = Math.min(this.maxHp, this.hp + d.regen * dt);
+  }
+
+  /** 머리 위 레벨 글자를 영웅 위치에 맞춘다 */
+  private placeLabel() {
+    if (!this.dead) this.lvText.setPosition(this.x, this.y - 38);
   }
 
   private updateRanged(dt: number, range: number, dmg: number, cd: number) {

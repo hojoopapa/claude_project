@@ -42,6 +42,8 @@ const D: Record<string, string[]> = {
   reviveTitle: ['패배 직전이에요!', 'About to lose!', '敗北寸前です！', '即将失败！', '¡Estás a punto de perder!', 'Você está prestes a perder!'],
   reviveBody: ['광고를 보면 생명 {n}개로 이어서 할 수 있어요\n(스테이지당 1번)', 'Watch an ad to continue with {n} lives\n(once per stage)', '広告を見るとライフ{n}で続けられます\n（ステージにつき1回）', '观看广告即可以 {n} 点生命继续\n（每关一次）', 'Mira un anuncio para continuar con {n} vidas\n(una vez por nivel)', 'Veja um anúncio para continuar com {n} vidas\n(uma vez por fase)'],
   reviveBtn: ['광고 보고 이어하기', 'Watch ad & continue', '広告を見て続ける', '看广告继续', 'Ver anuncio y seguir', 'Ver anúncio e continuar'],
+  heroKeep: ['광고 보고 영웅 레벨 유지', 'Watch ad & keep hero levels', '広告を見て英雄レベルを維持', '看广告保留英雄等级', 'Ver anuncio y conservar niveles', 'Ver anúncio e manter os níveis'],
+  heroKeepDone: ['영웅 레벨 유지 중!', 'Hero levels kept!', '英雄レベルを維持中！', '英雄等级已保留！', '¡Niveles conservados!', 'Níveis mantidos!'],
   reviveNo: ['포기', 'Give up', 'あきらめる', '放弃', 'Rendirse', 'Desistir'],
   adTitle: ['광고 (테스트)', 'Ad (test)', '広告（テスト）', '广告（测试）', 'Anuncio (prueba)', 'Anúncio (teste)'],
   adWait: ['광고 재생 중... {n}초', 'Ad playing... {n}s', '広告再生中… {n}秒', '广告播放中… {n}秒', 'Anuncio... {n}s', 'Anúncio... {n}s'],

@@ -3,13 +3,13 @@ import { GAME_W, GAME_H } from '../config';
 import { LEVELS, LevelDef, Theme } from '../data/levels';
 import { EnemyKind } from '../data/enemies';
 import { TOWERS, TowerKind } from '../data/towers';
-import { HEROES, HeroKind } from '../data/heroes';
+import { HEROES, HeroKind, heroLevel, heroXpFrac } from '../data/heroes';
 import { Enemy, Hero, Projectile, Soldier, Tower, Wall, World } from '../game/entities';
 import { WALL_GAP, WALL_MAX, WALL_SNAP, wallFor } from '../data/walls';
 import { t } from '../i18n';
 import { PathData, Vec } from '../game/path';
 import { hasSkinTexture, texFor } from '../skin';
-import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer } from '../save';
+import { saveStars, getDifficulty, tutorialSeen, markTutorialSeen, saveBestScore, getBestScore, getPlayer, getHeroSave, setHeroSave } from '../save';
 import { calcScore, fmt } from '../score';
 import { NameTakenError, cleanName, rankingEnabled, submitScore } from '../ranking';
 import { askUniqueName } from '../nameDialog';
@@ -84,6 +84,10 @@ export class GameScene extends Phaser.Scene implements World {
   private modal = false;
   private tutShown = new Set<string>();
 
+  /** 영웅 경험치. 긴 광고를 본 뒤(heroKeep)에는 저장해 두었다가 다음 스테이지에서 이어 받고, 아니면 스테이지마다 0 에서 시작한다 */
+  private heroXp: Record<HeroKind, number> = { knight: 0, sorc: 0 };
+  private heroKeep = false;
+  private heroGained = false;               // 이번 스테이지에서 영웅이 경험치를 얻었는지 (결과 화면의 "레벨 유지" 광고 버튼 표시용)
   private heroes: Record<HeroKind, { hero: Hero | null; respawn: number; cd: number }> = {
     knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 },
   };
@@ -127,6 +131,11 @@ export class GameScene extends Phaser.Scene implements World {
     this.spell = null;
     this.spellCd = { fire: 0, reinf: 0 };
     this.heroes = { knight: { hero: null, respawn: 0, cd: 0 }, sorc: { hero: null, respawn: 0, cd: 0 } };
+    const hs = getHeroSave();
+    this.heroKeep = hs.keep;
+    this.heroXp = hs.keep ? { ...hs.xp } : { knight: 0, sorc: 0 };
+    this.heroGained = false;
+    this.events.once('shutdown', () => this.saveHeroes());
     this.selHero = null; this.tip = null; this.modal = false; this.tutShown = new Set();
     this.selRally = null; this.rallyUi = [];
     this.walls = []; this.selWall = false;
@@ -184,6 +193,31 @@ export class GameScene extends Phaser.Scene implements World {
   gainGold(n: number, x: number, y: number) {
     this.gold += n;
     this.floatText(x, y - 14, `+${n}`, '#ffd34d');
+  }
+
+  /** 영웅 경험치: 영웅이 필드에 있을 때 적을 처치하면(누가 처치했든) 적의 골드값만큼 쌓인다. 레벨이 오르면 체력을 채우고 효과를 보여준다 */
+  gainXp(n: number) {
+    if (!this.features.heroes) return;
+    for (const k of ['knight', 'sorc'] as HeroKind[]) {
+      const h = this.heroes[k].hero;
+      if (!h || h.dead) continue;
+      const before = heroLevel(this.heroXp[k]);
+      this.heroXp[k] += n;
+      this.heroGained = true;
+      const after = heroLevel(this.heroXp[k]);
+      if (after > before) {
+        h.setLevel(after);
+        play('hero');
+        this.splashFx(h.x, h.y, 38, 0xffe066);
+        this.floatText(h.x, h.y - 50, t('levelUp'), '#ffe066');
+        this.saveHeroes();
+      }
+    }
+  }
+
+  /** 긴 광고를 보고 "레벨 유지"를 켠 경우에만 영웅 경험치를 저장한다 */
+  private saveHeroes() {
+    if (this.heroKeep) setHeroSave({ keep: true, xp: { ...this.heroXp } });
   }
 
   leak(lives: number) {
@@ -733,7 +767,7 @@ export class GameScene extends Phaser.Scene implements World {
 
   private spawnHero(k: HeroKind) {
     const st = this.heroes[k];
-    const h = new Hero(this, k, this.heroSpawnPoint());
+    const h = new Hero(this, k, this.heroSpawnPoint(), heroLevel(this.heroXp[k]));
     st.hero = h;
     this.soldiers.push(h);
     this.splashFx(h.x, h.y, 30, 0xffe9a0);
@@ -1030,6 +1064,21 @@ export class GameScene extends Phaser.Scene implements World {
         }
       }, C.slate);
     }
+    this.saveHeroes();
+    if (this.heroGained && !this.heroKeep) {
+      // 긴 광고를 끝까지 보면 영웅 레벨(경험치)을 이후 스테이지에서도 이어 간다 (안 보면 스테이지마다 1레벨부터)
+      let watching = false;
+      const hk = mk(t('heroKeep'), async () => {
+        if (watching) return;
+        watching = true;
+        if (await ads.show(this, 'long')) {
+          this.heroKeep = true;
+          this.saveHeroes();
+          hk.setLabel(t('heroKeepDone')); hk.setEnabled(false);
+        }
+        watching = false;
+      }, C.orange);
+    }
     mk(t('retry'), () => void this.afterAd(() => this.scene.restart({ index: this.index })), C.blue);
     mk(t('stageSelect'), () => void this.afterAd(() => this.scene.start('LevelSelect')), C.slate);
   }
@@ -1156,6 +1205,10 @@ export class GameScene extends Phaser.Scene implements World {
       if (h && !h.dead) g.lineStyle(2, 0x9fe870, 1).strokeEllipse(h.x, h.y + 12, 34, 16);
     }
     for (const s of this.soldiers) if (s.hp < s.maxHp) bar(s.x, s.y - 18, 20, s.hp / s.maxHp, 0x5aa8ff);
+    for (const k of ['knight', 'sorc'] as HeroKind[]) {           // 영웅 경험치 바 (레벨 글자 아래)
+      const h = this.heroes[k].hero;
+      if (h && !h.dead) bar(h.x, h.y - 28, 24, heroXpFrac(this.heroXp[k]), 0xffd34d);
+    }
     for (const w of this.walls) if (w.hp < w.maxHp) bar(w.x, w.y - 24, 30, w.hp / w.maxHp, 0xd9b36a);
     for (const t of this.towers) {
       for (let i = 0; i <= t.level; i++) g.fillStyle(0xffd34d, 1).fillCircle(t.pos.x - t.level * 5 + i * 10, t.pos.y + 18, 3);
