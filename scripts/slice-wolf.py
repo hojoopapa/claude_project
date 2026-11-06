@@ -31,7 +31,8 @@ def cut(img: Image.Image) -> list[Image.Image]:
         a = keyed_alpha(cell)
         a = a * dilate(largest_component(a > 0.5), 2)
         rgba = np.dstack([despill(cell, a), a * 255.0]).astype(np.uint8)
-        frames.append(Image.fromarray(rgba, 'RGBA'))
+        # 시트의 늑대는 왼쪽을 보고 있고 게임의 진행 방향은 오른쪽이라 좌우를 뒤집는다
+        frames.append(Image.fromarray(rgba, 'RGBA').transpose(Image.FLIP_LEFT_RIGHT))
     return frames
 
 
