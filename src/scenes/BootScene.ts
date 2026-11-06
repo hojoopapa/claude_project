@@ -30,12 +30,19 @@ export class BootScene extends Phaser.Scene {
     // 시작 화면 배경(글자와 버튼은 지운 그림)과 브레스 불꽃 (scripts/prepare-start-art.py 로 만든다)
     this.load.image('start_bg', `${base}skins/png/start_bg.jpg`);
     this.load.image('breath_flame', `${base}skins/png/breath_flame.png`);   // 용의 브레스 불꽃
+    // 화염비 스펠: 떨어지는 불꽃 5장, 착탄 효과 9장 (scripts/slice-fire-rain.py)
+    this.load.spritesheet('fire_fall', `${base}skins/png/fire_fall.png`, { frameWidth: 88, frameHeight: 88 });
+    this.load.spritesheet('fire_hit', `${base}skins/png/fire_hit.png`, { frameWidth: 130, frameHeight: 118 });
   }
 
   create() {
     const index = this.cache.json.exists('skin-svg') ? ({ ...(this.cache.json.get('skin-svg') as SkinIndex) }) : undefined;
     for (const k of PNG_REPLACE) if (this.textures.exists(k)) delete index?.[k];   // PNG 로 바꾼 그림은 같은 키의 SVG 를 불러오지 않는다
     const finish = () => {
+      if (this.textures.exists('fire_fall') && !this.anims.exists('fire_fall')) {
+        this.anims.create({ key: 'fire_fall', frames: this.anims.generateFrameNumbers('fire_fall', { start: 0, end: 4 }), frameRate: 14, repeat: -1 });
+        this.anims.create({ key: 'fire_hit', frames: this.anims.generateFrameNumbers('fire_hit', { start: 0, end: 8 }), frameRate: 20 });
+      }
       for (const k of Object.keys(index ?? {})) if (this.textures.exists(k)) markSkinTexture(k);
       for (const k of [...PNG_FRAMES, ...PNG_REPLACE]) if (this.textures.exists(k)) markSkinTexture(k);
       this.makeProceduralTextures();

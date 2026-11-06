@@ -894,6 +894,28 @@ export class GameScene extends Phaser.Scene implements World {
     else this.hideBanner();
   }
 
+  /** 화염비 한 발: 불꽃 그림이 떨어지다가 닿으면 착탄 효과가 터진다. 그림이 없으면 주황 공으로 대신한다 */
+  private fireDrop(tx: number, ty: number, delay: number) {
+    if (!this.anims.exists('fire_fall')) {
+      const rock = this.add.circle(tx + 30, ty - 260, 9, 0xff7a1a).setDepth(940);
+      this.tweens.add({ targets: rock, x: tx, y: ty, delay: delay * 1000, duration: 350, onComplete: () => rock.destroy() });
+      return;
+    }
+    const k = 0.21;                        // 도트 그림(88px 칸)을 화면에서 약 18px 로 그린다 (처음 0.7 의 30%, 2026-11-06 사용자 요청)
+    const fall = this.add.sprite(tx + 30, ty - 260, 'fire_fall').setScale(k).setDepth(940).setVisible(false);
+    fall.play({ key: 'fire_fall', startFrame: Math.floor(Math.random() * 5) });
+    this.tweens.add({
+      targets: fall, x: tx, y: ty - 5, delay: delay * 1000, duration: 350,
+      onStart: () => fall.setVisible(true),
+      onComplete: () => {
+        fall.destroy();
+        const hit = this.add.sprite(tx, ty - 4, 'fire_hit').setScale(k * 1.1).setDepth(940);
+        hit.play('fire_hit');
+        hit.once('animationcomplete', () => hit.destroy());
+      },
+    });
+  }
+
   private castSpell(s: Spell, x: number, y: number) {
     this.spell = null;
     this.hideBanner();
@@ -906,8 +928,7 @@ export class GameScene extends Phaser.Scene implements World {
         const tx = x + Math.cos(a) * r, ty = y + Math.sin(a) * r * 0.7;
         const delay = 0.2 + i * 0.18;
         this.strikes.push({ t: this.clock + delay + 0.35, x: tx, y: ty });
-        const rock = this.add.circle(tx + 30, ty - 260, 9, 0xff7a1a).setDepth(940);
-        this.tweens.add({ targets: rock, x: tx, y: ty, delay: delay * 1000, duration: 350, onComplete: () => rock.destroy() });
+        this.fireDrop(tx, ty, delay);
       }
     } else {
       play('reinf');
