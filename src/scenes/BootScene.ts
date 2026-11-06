@@ -128,42 +128,59 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  /** 벽 4종(나무, 흙, 벽돌, 금속). 48x32 크기의 가로로 긴 방벽 */
+  /**
+   * 벽 4종(나무, 흙, 벽돌, 금속). 기본 그림(48x32)은 가로로 긴 방벽으로, 위아래로 뻗은 길을 막는다.
+   * 좌우로 뻗은 길에는 같은 그림을 90도 돌린 세로 방벽(키 + '_v', 32x48)을 쓴다.
+   */
   private makeWalls() {
     const line = 0x1b1b1b;
-    tex(this, 'w_wood', 48, 32, (g) => {
-      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 44, 8);
-      g.fillStyle(0x9a6b3a).fillRect(3, 8, 42, 18);
-      g.fillStyle(0xb98550).fillRect(3, 8, 42, 5);
-      g.lineStyle(2, 0x5c3b1c).lineBetween(3, 14, 45, 14).lineBetween(3, 20, 45, 20).lineBetween(16, 8, 16, 26).lineBetween(32, 8, 32, 26);
-      g.lineStyle(2, line).strokeRect(3, 8, 42, 18);
-      g.fillStyle(0x7a5228).fillRect(7, 3, 6, 25).fillRect(35, 3, 6, 25);
-      g.lineStyle(2, line).strokeRect(7, 3, 6, 25).strokeRect(35, 3, 6, 25);
-    });
-    tex(this, 'w_dirt', 48, 32, (g) => {
-      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 44, 8);
-      g.fillStyle(0x7d5a3a).fillPoints([new Phaser.Math.Vector2(2, 27), new Phaser.Math.Vector2(8, 12), new Phaser.Math.Vector2(18, 6), new Phaser.Math.Vector2(30, 6), new Phaser.Math.Vector2(41, 12), new Phaser.Math.Vector2(46, 27)], true);
-      g.fillStyle(0x9a7550).fillPoints([new Phaser.Math.Vector2(10, 14), new Phaser.Math.Vector2(18, 8), new Phaser.Math.Vector2(30, 8), new Phaser.Math.Vector2(38, 14), new Phaser.Math.Vector2(24, 17)], true);
-      g.fillStyle(0x5e4129).fillCircle(14, 22, 3).fillCircle(30, 21, 4).fillCircle(38, 24, 2.5).fillCircle(22, 24, 2.5);
-      g.lineStyle(2, line).strokePoints([new Phaser.Math.Vector2(2, 27), new Phaser.Math.Vector2(8, 12), new Phaser.Math.Vector2(18, 6), new Phaser.Math.Vector2(30, 6), new Phaser.Math.Vector2(41, 12), new Phaser.Math.Vector2(46, 27)], false);
-    });
-    tex(this, 'w_brick', 48, 32, (g) => {
-      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 46, 8);
-      g.fillStyle(0xb5533c).fillRect(2, 6, 44, 21);
-      g.fillStyle(0xd0705a).fillRect(2, 6, 44, 4);
-      g.lineStyle(2, 0x6b2f22).lineBetween(2, 13, 46, 13).lineBetween(2, 20, 46, 20)
-        .lineBetween(14, 6, 14, 13).lineBetween(30, 6, 30, 13).lineBetween(8, 13, 8, 20).lineBetween(24, 13, 24, 20).lineBetween(40, 13, 40, 20)
-        .lineBetween(14, 20, 14, 27).lineBetween(30, 20, 30, 27);
-      g.lineStyle(2, line).strokeRect(2, 6, 44, 21);
-    });
-    tex(this, 'w_metal', 48, 32, (g) => {
-      g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, 46, 8);
-      g.fillStyle(0x7f8da0).fillRect(2, 5, 44, 22);
-      g.fillStyle(0xaab7c8).fillRect(2, 5, 44, 6);
-      g.lineStyle(2, 0x4a5568).lineBetween(2, 16, 46, 16).lineBetween(24, 5, 24, 27);
-      g.fillStyle(0xdfe8f2).fillCircle(7, 10, 1.8).fillCircle(41, 10, 1.8).fillCircle(7, 22, 1.8).fillCircle(41, 22, 1.8).fillCircle(20, 10, 1.8).fillCircle(28, 22, 1.8);
-      g.lineStyle(2.5, line).strokeRect(2, 5, 44, 22);
-    });
+    const V = Phaser.Math.Vector2;
+    const bodies: [string, number, (g: G) => void][] = [
+      ['w_wood', 44, (g) => {
+        g.fillStyle(0x9a6b3a).fillRect(3, 8, 42, 18);
+        g.fillStyle(0xb98550).fillRect(3, 8, 42, 5);
+        g.lineStyle(2, 0x5c3b1c).lineBetween(3, 14, 45, 14).lineBetween(3, 20, 45, 20).lineBetween(16, 8, 16, 26).lineBetween(32, 8, 32, 26);
+        g.lineStyle(2, line).strokeRect(3, 8, 42, 18);
+        g.fillStyle(0x7a5228).fillRect(7, 3, 6, 25).fillRect(35, 3, 6, 25);
+        g.lineStyle(2, line).strokeRect(7, 3, 6, 25).strokeRect(35, 3, 6, 25);
+      }],
+      ['w_dirt', 44, (g) => {
+        const hill = [new V(2, 27), new V(8, 12), new V(18, 6), new V(30, 6), new V(41, 12), new V(46, 27)];
+        g.fillStyle(0x7d5a3a).fillPoints(hill, true);
+        g.fillStyle(0x9a7550).fillPoints([new V(10, 14), new V(18, 8), new V(30, 8), new V(38, 14), new V(24, 17)], true);
+        g.fillStyle(0x5e4129).fillCircle(14, 22, 3).fillCircle(30, 21, 4).fillCircle(38, 24, 2.5).fillCircle(22, 24, 2.5);
+        g.lineStyle(2, line).strokePoints(hill, false);
+      }],
+      ['w_brick', 46, (g) => {
+        g.fillStyle(0xb5533c).fillRect(2, 6, 44, 21);
+        g.fillStyle(0xd0705a).fillRect(2, 6, 44, 4);
+        g.lineStyle(2, 0x6b2f22).lineBetween(2, 13, 46, 13).lineBetween(2, 20, 46, 20)
+          .lineBetween(14, 6, 14, 13).lineBetween(30, 6, 30, 13).lineBetween(8, 13, 8, 20).lineBetween(24, 13, 24, 20).lineBetween(40, 13, 40, 20)
+          .lineBetween(14, 20, 14, 27).lineBetween(30, 20, 30, 27);
+        g.lineStyle(2, line).strokeRect(2, 6, 44, 21);
+      }],
+      ['w_metal', 46, (g) => {
+        g.fillStyle(0x7f8da0).fillRect(2, 5, 44, 22);
+        g.fillStyle(0xaab7c8).fillRect(2, 5, 44, 6);
+        g.lineStyle(2, 0x4a5568).lineBetween(2, 16, 46, 16).lineBetween(24, 5, 24, 27);
+        g.fillStyle(0xdfe8f2).fillCircle(7, 10, 1.8).fillCircle(41, 10, 1.8).fillCircle(7, 22, 1.8).fillCircle(41, 22, 1.8).fillCircle(20, 10, 1.8).fillCircle(28, 22, 1.8);
+        g.lineStyle(2.5, line).strokeRect(2, 5, 44, 22);
+      }],
+    ];
+    for (const [key, shadowW, body] of bodies) {
+      tex(this, key, 48, 32, (g) => {
+        g.fillStyle(0x000000, 0.25).fillEllipse(24, 28, shadowW, 8);
+        body(g);
+      });
+      tex(this, key + '_v', 32, 48, (g) => {
+        g.fillStyle(0x000000, 0.25).fillEllipse(16, 44, 26, 7);   // 그림자는 돌리지 않고 아래쪽 바닥에 둔다
+        g.save();
+        g.translateCanvas(32, 0);                                 // (x, y) -> (32 - y, x): 시계 방향으로 90도
+        g.rotateCanvas(Math.PI / 2);
+        body(g);
+        g.restore();
+      });
+    }
   }
 
   private makeProceduralTextures() {

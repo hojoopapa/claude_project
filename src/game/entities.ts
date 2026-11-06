@@ -643,9 +643,10 @@ export class Wall implements Blocker {
   dead = false;
   private flash = 0;
 
-  constructor(private w: World, readonly pos: Vec, readonly tier: WallTier) {
+  /** vertical: 길이 좌우로 뻗어 적이 가로로 지나가므로, 길을 가로막는 벽은 위아래로 길게 세운다 */
+  constructor(private w: World, readonly pos: Vec, readonly tier: WallTier, vertical = false) {
     this.hp = this.maxHp = tier.hp;
-    const tx = texFor(tier.tex);
+    const tx = texFor(vertical ? tier.tex + '_v' : tier.tex);
     this.img = w.gs.add.image(pos.x, pos.y, tx.key).setScale(tx.scale * 0.3).setDepth(pos.y - 1);
     w.gs.tweens.add({ targets: this.img, scale: tx.scale, duration: 220, ease: 'Back.Out' });
   }

@@ -784,11 +784,11 @@ export class GameScene extends Phaser.Scene implements World {
     if (y < 44) return;
     const tier = wallFor(this.level.id);
     const live = this.walls.filter((w) => !w.dead);
-    let best: { pt: Vec; dist: number } | null = null;
+    let best: { pt: Vec; dist: number; horizontal: boolean } | null = null;
     for (const p of this.paths) {
       if (p.air) continue;
       const n = p.nearest({ x, y });
-      if (!best || n.dist < best.dist) best = n;
+      if (!best || n.dist < best.dist) best = { ...n, horizontal: p.horizontalAt(n.d) };
     }
     if (live.length >= WALL_MAX) { this.floatText(x, y - 20, t('wallMax', { n: WALL_MAX }), '#ff9a6a'); return; }
     if (!best || best.dist > WALL_SNAP || live.some((w) => Math.hypot(w.x - best!.pt.x, w.y - best!.pt.y) < WALL_GAP)) {
@@ -797,7 +797,7 @@ export class GameScene extends Phaser.Scene implements World {
     }
     if (this.gold < tier.cost) { this.floatText(x, y - 20, t('wallGold'), '#ff6060'); return; }
     this.gold -= tier.cost;
-    this.walls.push(new Wall(this, best.pt, tier));
+    this.walls.push(new Wall(this, best.pt, tier, best.horizontal));
     play('build');
     this.cancelWall();
   }

@@ -1,4 +1,4 @@
-import type { Vec } from '../game/path.ts';
+import { curvePath, type Vec } from '../game/path.ts';
 import type { EnemyKind } from './enemies.ts';
 import { autoSpots } from './autospots.ts';
 import { catchUpGold, genWaves, waveCount, type PoolEntry } from './wavegen.ts';
@@ -55,9 +55,13 @@ interface Spec {
 const line = (...pts: [number, number][]) => pts.map(([x, y]) => p(x, y));
 const e = (kind: EnemyKind, w: number, from = 0): PoolEntry => ({ kind, w, from });
 
+/** 1~3 스테이지만 직선 길을 그대로 두고, 4 스테이지부터는 모서리를 둥글리고 직선에 굽이를 넣는다 */
+const CURVY_FROM = 4;
+
 function make(sp: Spec): LevelDef {
-  const paths = [...sp.ground.map((pts) => ({ pts })), ...(sp.air ?? []).map((pts) => ({ pts, air: true }))];
-  const spots = Array.isArray(sp.spots) ? sp.spots : autoSpots(sp.ground, sp.spots ?? 14);
+  const ground = sp.id >= CURVY_FROM ? sp.ground.map((pts) => curvePath(pts, sp.id * 0.9)) : sp.ground;
+  const paths = [...ground.map((pts) => ({ pts })), ...(sp.air ?? []).map((pts) => ({ pts, air: true }))];
+  const spots = Array.isArray(sp.spots) ? sp.spots : autoSpots(ground, sp.spots ?? 14);
   const waves = genWaves({
     seed: sp.id, stage: sp.id, pool: sp.pool, lanes: sp.ground.length,
     airPath: sp.air?.length ? sp.ground.length : undefined, boss: sp.boss, power: sp.power, waves: waveCount(sp.id),
@@ -175,7 +179,7 @@ export const LEVELS: LevelDef[] = [
     air: [line([-30, 300], [990, 440])],
     spots: [
       p(100, 330), p(100, 200), p(260, 220), p(270, 60), p(340, 230), p(240, 400), p(350, 400),
-      p(540, 280), p(540, 430), p(750, 230), p(580, 60), p(830, 60), p(830, 190), p(720, 280), p(600, 410),
+      p(540, 280), p(540, 430), p(750, 230), p(580, 60), p(830, 48), p(830, 190), p(720, 280), p(600, 410),
     ],
     pool: [e('goblin', 2), e('wolf', 2), e('wisp', 2), e('orc', 2), e('bat', 1.5, 2)],
   }),
