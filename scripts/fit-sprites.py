@@ -25,7 +25,7 @@ FOOT = 0.90
 # 적: (원본 접두어, 결과 접두어, 걷기1 몸 높이(2배 해상도), 왼쪽을 보는지, 컷 이름들)
 ENEMIES = [
     ('orc', 'e_orc', 70, {'atk1'}, ['walk1', 'walk2', 'atk1', 'atk2']),
-    ('shaman', 'e_shaman', 64, True, ['walk1', 'walk2', 'atk1', 'atk2']),
+    ('shaman', 'e_shaman', 64, {'atk1'}, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('wraith', 'e_wraith', 64, False, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('golem', 'e_golem', 104, False, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('ogre', 'e_ogre', 120, False, ['walk1', 'walk2', 'atk1', 'atk2']),
