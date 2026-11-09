@@ -20,29 +20,48 @@ THEMES = ['meadow', 'desert', 'swamp', 'snow', 'volcano']
 GW, GH = 960, 540
 
 
+BG_SCALE = 0.18      # 원본 대비 크기. 나무 높이가 약 45px (병사 28px 보다 조금 큼)
+
+
 def bg():
-    """지역 띠(약 582x1440)에서 위치가 다른 두 곳을 좌우로 이어 붙인다 (거의 원본 크기라 나무가 타워보다 커지지 않는다)."""
+    """지역 띠(약 582x1440)를 작게 줄이고, 거기서 무작위 위치의 조각을 격자로 이어 붙여 화면을 채운다.
+    조각은 가장자리 14px 를 서로 겹쳐 섞는다 (대칭 무늬가 생기지 않도록 뒤집지 않는다)."""
     im = Image.open(os.path.join(SRC, 'bg.png')).convert('RGB')
     W, H = im.size
     sw = W / 5
-    hw = GW // 2                                 # 반쪽 폭 480
-    ys = [0, 270, 540, 788]                      # 반쪽이 시작하는 높이. 788 이하로 제한해 아래쪽 구석 로고(y>1330)를 피한다
-    pairs = [(0, 2), (1, 3), (2, 0), (3, 1)]      # (왼쪽, 오른쪽) 위치 번호. 스테이지마다 다른 조합
-    seam = 60
+    inner = int(sw) - 100                         # 띠 양옆 50px 은 이웃 지역과 섞여 있어 버린다
     os.makedirs(os.path.join(OUT, 'bg'), exist_ok=True)
-    ramp = np.clip((np.arange(GW) - (hw - seam / 2)) / seam, 0, 1)[None, :, None]
+    f = 14
     for i, th in enumerate(THEMES):
-        x0 = round(i * sw + (sw - hw) / 2)       # 띠 가운데 480px (양옆 이웃 지역과 섞인 부분은 버린다)
-        for j, (l, r) in enumerate(pairs):
-            L = np.zeros((GH, GW, 3), np.float32)
-            R = np.zeros((GH, GW, 3), np.float32)
-            cl = im.crop((x0, ys[l], x0 + hw + seam // 2, ys[l] + GH))
-            cr = im.crop((x0 - seam // 2, ys[r], x0 + hw, ys[r] + GH))
-            L[:, :hw + seam // 2] = np.array(cl)
-            R[:, hw - seam // 2:] = np.array(cr)
-            out = L * (1 - ramp) + R * ramp
-            Image.fromarray(out.astype(np.uint8)).save(os.path.join(OUT, 'bg', f'bg_{th}_{j + 1}.jpg'), quality=82, optimize=True)
-    print('bg', len(THEMES) * len(pairs))
+        x0 = round(i * sw + 50)
+        strip = im.crop((x0, 0, x0 + inner, 1330))                 # 아래쪽 구석 로고(y>1330) 제외
+        cw, chh = round(inner * BG_SCALE), round(1330 * BG_SCALE)
+        st = np.array(strip.resize((cw, chh), Image.LANCZOS)).astype(np.float32)
+        ph = 96                                                    # 조각 높이 (겹침 포함)
+        wx = np.minimum(np.arange(cw) + 1, np.arange(cw)[::-1] + 1)
+        wy = np.minimum(np.arange(ph) + 1, np.arange(ph)[::-1] + 1)
+        win = np.minimum(np.minimum(wy[:, None], wx[None, :]), f).astype(np.float32) / f + 0.02
+        for j in range(4):
+            rnd = np.random.RandomState(1000 * (i + 1) + j)
+            acc = np.zeros((GH + 3 * ph, GW + 3 * cw, 3), np.float32)
+            wsum = np.zeros((GH + 3 * ph, GW + 3 * cw, 1), np.float32)
+            # 조각을 한 줄씩 놓되 가로 간격, 세로 위치, 좌우 뒤집기를 무작위로 해서 격자 무늬가 안 보이게 한다
+            y = -rnd.randint(ph)
+            while y < GH:
+                x = -rnd.randint(cw)
+                while x < GW:
+                    yy = rnd.randint(0, chh - ph)
+                    pt = st[yy:yy + ph]
+                    if rnd.rand() < 0.5:
+                        pt = pt[:, ::-1]
+                    y0, x0_ = y + ph, x + cw                          # 버퍼 여백(ph, cw)만큼 밀어 음수 좌표를 피한다
+                    acc[y0:y0 + ph, x0_:x0_ + cw] += pt * win[..., None]
+                    wsum[y0:y0 + ph, x0_:x0_ + cw] += win[..., None]
+                    x += int(cw * rnd.uniform(0.84, 0.97))
+                y += int(ph * rnd.uniform(0.8, 0.95))
+            out = (acc / np.maximum(wsum, 1e-3))[ph:ph + GH, cw:cw + GW]
+            Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(os.path.join(OUT, 'bg', f'bg_{th}_{j + 1}.jpg'), quality=85, optimize=True)
+    print('bg', len(THEMES) * 4)
 
 
 def cells():

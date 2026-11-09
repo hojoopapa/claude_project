@@ -106,11 +106,22 @@ def pack(frames: dict, foot_frac: float | None = None, low_only: bool = False):
         print(f'{n}.png  {cw}x{ch}  (그림 {f.width}x{f.height})')
 
 
+ICONS = ['heart', 'coin', 'star', 'star_off', 'lock', 'pause', 'ff', 'play', 'back', 'up', 'edit', 'sound', 'mute', 'home', 'flag', 'reinf', 'sell', 'fire']
+ICON_BOX = 44          # 48x48 캔버스 안에 이 크기로 맞춘다 (게임은 0.5배로 그려 24px)
+
+
 def main():
     for src, dst, body_h, flip, cuts in ENEMIES:
         ims = {c: load(f'{src}_{c}', flip is True or (isinstance(flip, set) and c in flip)) for c in cuts}
         s = body_h / ims[cuts[0]].height
         pack({f'{dst}_{c}': resize(im, s) for c, im in ims.items()})
+    for n in ICONS:
+        im = load('ic_' + n)
+        s = ICON_BOX / max(im.size)
+        im = resize(im, s)
+        canvas = Image.new('RGBA', (48, 48), (0, 0, 0, 0))
+        canvas.paste(im, ((48 - im.width) // 2, (48 - im.height) // 2), im)
+        canvas.save(os.path.join(OUT, f'ic_{n}.png'), optimize=True)
     for src, src_v, dst in WALLS:
         for key, name, w in ((dst, src, WALL_W), (dst + '_v', src_v or src, WALL_VS_W if src_v else WALL_V_W)):
             im = load(name)

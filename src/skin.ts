@@ -33,6 +33,8 @@ export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight'
   't_barracks_1', 't_barracks_2', 't_barracks_3', 't_frost_1', 't_frost_2', 't_frost_3', 't_cannon_1', 't_cannon_2', 't_cannon_3',
   't_mage_1', 't_mage_2', 't_mage_3', 't_thunder_1', 't_thunder_2', 't_thunder_3',   // scripts/fit-sprites.py
   'h_sorc',
+  // 아이콘 그림 (etc.png, 48x48 을 0.5배로 그린다). 트로피(ic_trophy)는 그림이 없어 도형 그대로
+  ...['heart', 'coin', 'star', 'star_off', 'lock', 'pause', 'ff', 'play', 'back', 'up', 'edit', 'sound', 'mute', 'home', 'flag', 'reinf', 'sell', 'fire'].map((k) => `ic_${k}`),
 ] as const;   // spot = 건물 자리 (scripts/slice-spot.py)
 
 /** SVG 로 불러온 텍스처 키 */

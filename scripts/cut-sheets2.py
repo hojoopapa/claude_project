@@ -22,7 +22,7 @@ def hsv(a):
     return h, d / (mx + 1e-6), mx
 
 
-def cut(sheet, name, box, clear=(), extra=None):
+def cut(sheet, name, box, clear=(), extra=None, group=4):
     """box=(x0,y0,x1,y1), clear=[(x0,y0,x1,y1)...] 영역 지움, extra(a, h, s, v, X, Y)->지울 마스크"""
     im = Image.open(os.path.join(SRC, sheet + '.png')).convert('RGBA')
     a = np.array(im)
@@ -36,7 +36,7 @@ def cut(sheet, name, box, clear=(), extra=None):
         out |= extra(h, s, v, X, Y)
     fg = ~bg & ~out
     fg = ndi.binary_opening(fg, iterations=2)
-    lab, k = ndi.label(ndi.binary_dilation(fg, iterations=4))
+    lab, k = ndi.label(ndi.binary_dilation(fg, iterations=group))
     sz = ndi.sum(fg, lab, range(1, k + 1))
     fg &= lab == int(np.argmax(sz)) + 1
     fg = ndi.binary_fill_holes(fg) & ~bg if extra is None else fg
@@ -62,3 +62,12 @@ cut('wall', 'wall_dirt_s', (1180, 570, 1700, 1040))
 cut('wall', 'wall_brick', (190, 1120, 1130, 1700))
 cut('wall', 'wall_brick_s', (1180, 1030, 1690, 1570))
 cut('wall', 'wall_metal', (230, 1600, 1560, 2320))
+
+# 아이콘 시트 etc.png: 4열 x 5행 (칸 448x480)
+ICONS = ['heart', 'coin', 'star', 'star_off', 'lock', 'pause', 'ff', 'retry', 'play', 'back', 'up', 'edit',
+         'sound', 'mute', 'home', 'home2', 'flag', 'reinf', 'sell', 'fire']
+for i, n in enumerate(ICONS):
+    c, r = i % 4, i // 4
+    # 별, 화염비는 배경색이 번진 분홍/보라 빛(색조 280~350도, 채도 0.15 이상)을 지운다
+    pink = (lambda h, s, v, X, Y: (h > 280) & (h < 350) & (s > 0.15)) if n in ('star', 'fire') else None
+    cut('etc', 'ic_' + n, (c * 448 + 4, r * 480 + 4, c * 448 + 444, r * 480 + 476), extra=pink, group={'fire': 40, 'sell': 14}.get(n, 8))
