@@ -198,7 +198,50 @@ export class GameScene extends Phaser.Scene implements World {
     this.nextWaveAt = this.clock + (this.level.id <= TUTORIAL_STAGES ? 25 : 12); // 첫 웨이브 전 준비 시간
 
     // 스테이지를 시작할 때마다 약올림 팝업 (광고로 없앴으면 안 뜬다). 다시 하기, 다음 스테이지에서도 뜬다
-    if (shouldTaunt()) this.scene.launch('Taunt', { level: this.level.id });
+    if (shouldTaunt()) {
+      this.scene.launch('Taunt', { level: this.level.id });
+      this.scene.get('Taunt').events.once('shutdown', () => this.showRoute());   // 약올림 팝업이 닫힌 뒤에 보여 준다
+    } else {
+      this.time.delayedCall(500, () => this.showRoute());
+    }
+  }
+
+  /** 스테이지를 시작할 때 적이 지나갈 길을 따라 화살표 줄이 빠르게 2번 지나간다 */
+  private showRoute() {
+    if (this.over || !this.sys.isActive()) return;
+    if (!this.textures.exists('route_arrow')) {
+      const g = this.make.graphics({ x: 0, y: 0 }, false);
+      const chev = (ox: number, oy: number, col: number, a: number) => {
+        g.fillStyle(col, a).fillPoints([
+          new Phaser.Math.Vector2(ox + 2, oy + 2), new Phaser.Math.Vector2(ox + 11, oy + 2), new Phaser.Math.Vector2(ox + 22, oy + 12),
+          new Phaser.Math.Vector2(ox + 11, oy + 22), new Phaser.Math.Vector2(ox + 2, oy + 22), new Phaser.Math.Vector2(ox + 13, oy + 12),
+        ], true);
+      };
+      chev(1, 1, 0x000000, 0.45);   // 바깥 그림자
+      chev(0, 0, 0xffe066, 1);
+      g.generateTexture('route_arrow', 26, 26);
+      g.destroy();
+    }
+    const SPACING = 54, COUNT = 5, SPEED = 950, PASSES = 2;   // 화살표 간격(px), 한 줄 개수, 속도(px/초), 반복 횟수
+    for (const p of this.paths) {
+      if (p.air) continue;
+      const arrows = Array.from({ length: COUNT }, () => this.add.image(0, 0, 'route_arrow').setDepth(890).setVisible(false));
+      const span = p.total + COUNT * SPACING;
+      this.tweens.addCounter({
+        from: 0, to: span, duration: (span / SPEED) * 1000, repeat: PASSES - 1,
+        onUpdate: (tw) => {
+          const head = tw.getValue() ?? 0;
+          arrows.forEach((a, i) => {
+            const d = head - i * SPACING;
+            if (d < 0 || d > p.total) { a.setVisible(false); return; }
+            const a0 = p.at(d), a1 = p.at(Math.min(p.total, d + 8));
+            a.setVisible(true).setPosition(a0.x, a0.y).setRotation(Math.atan2(a1.y - a0.y, a1.x - a0.x) || a.rotation);
+            a.setAlpha(1 - (i / COUNT) * 0.55);                       // 뒤쪽 화살표일수록 옅게
+          });
+        },
+        onComplete: () => arrows.forEach((a) => a.destroy()),
+      });
+    }
   }
 
   // ---------- World ----------
