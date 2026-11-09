@@ -93,3 +93,4 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 - t_mage / t_thunder 1~3레벨 PNG (scripts/cut-sheets2.py 로 시트에서 잘라 docs/art/source/cut, scripts/fit-sprites.py 로 맞춤). 시트가 겹쳐 있어 컷마다 영역·지울 부분을 직접 지정했다.
 - 벽 PNG: wp_wood/dirt/metal(+_v 세로). 흙·벽돌은 세로용 짧은 컷을 따로 쓴다. 벽 버튼 아이콘과 타워 건설 메뉴 아이콘은 아직 도형.
 - 건설 자리: autospots.ts clearRoad() 가 자리 그림(66x45)이 길(폭 60)에 안 닿게 밀어낸다 (levels.ts make 에서 적용).
+- 배경/길 (scripts/slice-bg-road.py, 원본 시트 bg.png, road.png 는 용량 때문에 저장소에 없음): public/skins/bg/bg_<테마>_<1~4>.jpg (스테이지 (id-1)%4+1), road/road_<테마>.png (거울 이음 타일, GameScene.drawMap 이 캔버스 패턴으로 길 모양에 칠함), road/rd_<테마>.png/json (길가 장식 아틀라스). GameScene.preload 에서 스테이지별로 불러오고, 파일이 없으면 예전 도형 배경으로 돌아간다. 배경이 있으면 벡터 나무 소품은 그리지 않는다.

@@ -144,6 +144,18 @@ export class GameScene extends Phaser.Scene implements World {
     this.blasts = [];
   }
 
+  /** 이 스테이지의 배경(테마마다 4장), 길 바닥 타일, 길가 장식을 불러온다. 없으면 drawMap 이 도형으로 그린다 */
+  preload() {
+    const base = import.meta.env.BASE_URL;
+    const lv = LEVELS[this.index];
+    const th = lv.theme;
+    const bg = `bg_${th}_${((lv.id - 1) % 4) + 1}`;
+    if (!this.textures.exists(bg)) this.load.image(bg, `${base}skins/bg/${bg}.jpg`);
+    if (!this.textures.exists(`road_${th}`)) this.load.image(`road_${th}`, `${base}skins/road/road_${th}.png`);
+    if (!this.textures.exists(`rd_${th}`)) this.load.atlas(`rd_${th}`, `${base}skins/road/rd_${th}.png`, `${base}skins/road/rd_${th}.json`);
+    this.load.on('loaderror', () => { /* 파일이 없으면 도형으로 */ });
+  }
+
   create() {
     this.level = LEVELS[this.index];
     this.features = featuresFor(this.level.id);
@@ -341,10 +353,19 @@ export class GameScene extends Phaser.Scene implements World {
   private drawMap() {
     const th = THEMES[this.level.theme];
     const g = this.add.graphics().setDepth(-10);
-    g.fillStyle(th.ground).fillRect(0, 0, GAME_W, GAME_H);
+    const bgKey = `bg_${this.level.theme}_${((this.level.id - 1) % 4) + 1}`;
+    const hasBg = this.textures.exists(bgKey);
+    const roadKey = `road_${this.level.theme}`;
+    const hasRoad = this.textures.exists(roadKey);
     const rnd = mulberry32(this.level.id * 7919);
-    for (let i = 0; i < 22; i++) {
-      g.fillStyle(th.patch, 0.5).fillEllipse(rnd() * GAME_W, rnd() * GAME_H, 40 + rnd() * 90, 20 + rnd() * 50);
+    if (hasBg) {
+      this.add.image(0, 0, bgKey).setOrigin(0).setDepth(-11);
+      this.add.rectangle(0, 0, GAME_W, GAME_H, 0x0a1020, 0.22).setOrigin(0).setDepth(-10.5);   // 배경이 타워·길보다 튀지 않게 살짝 눌러 준다
+    } else {
+      g.fillStyle(th.ground).fillRect(0, 0, GAME_W, GAME_H);
+      for (let i = 0; i < 22; i++) {
+        g.fillStyle(th.patch, 0.5).fillEllipse(rnd() * GAME_W, rnd() * GAME_H, 40 + rnd() * 90, 20 + rnd() * 50);
+      }
     }
     for (const p of this.paths) {
       if (p.air) {
@@ -363,16 +384,33 @@ export class GameScene extends Phaser.Scene implements World {
       g.strokePath();
       p.pts.forEach((q) => g.fillStyle(th.edge).fillCircle(q.x, q.y, 26));
     }
-    for (const p of this.paths) {
-      if (p.air) continue;
-      g.lineStyle(42, th.road, 1).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
-      p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
-      g.strokePath();
-      p.pts.forEach((q) => g.fillStyle(th.road).fillCircle(q.x, q.y, 21));
+    if (hasRoad) {
+      // 길 바닥 그림을 반복 무늬로 삼아 길 모양을 따라 칠한다 (캔버스에 한 번만 구워 둔다)
+      if (this.textures.exists('roadcv')) this.textures.remove('roadcv');
+      const cv = this.textures.createCanvas('roadcv', GAME_W, GAME_H)!;
+      const ctx = cv.getContext();
+      ctx.strokeStyle = ctx.createPattern(this.textures.get(roadKey).getSourceImage() as HTMLImageElement, 'repeat') ?? '#c9b07a';
+      ctx.lineWidth = 42; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const p of this.paths) {
+        if (p.air) continue;
+        ctx.beginPath();
+        p.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+        ctx.stroke();
+      }
+      cv.refresh();
+      this.add.image(0, 0, 'roadcv').setOrigin(0).setDepth(-9);
+    } else {
+      for (const p of this.paths) {
+        if (p.air) continue;
+        g.lineStyle(42, th.road, 1).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
+        p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
+        g.strokePath();
+        p.pts.forEach((q) => g.fillStyle(th.road).fillCircle(q.x, q.y, 21));
+      }
     }
-    // 길 가운데 은은한 밝은 띠와 자갈
+    // 길 가운데 은은한 밝은 띠와 자갈 (길 그림이 없을 때만)
     const light = Phaser.Display.Color.ValueToColor(th.road).lighten(12).color;
-    for (const p of this.paths) {
+    for (const p of hasRoad ? [] : this.paths) {
       if (p.air) continue;
       g.lineStyle(20, light, 0.3).beginPath().moveTo(p.pts[0].x, p.pts[0].y);
       p.pts.slice(1).forEach((q) => g.lineTo(q.x, q.y));
@@ -386,7 +424,23 @@ export class GameScene extends Phaser.Scene implements World {
     }
     // 장식 (길/타워 자리에서 떨어진 곳에만)
     const ground = this.paths.filter((p) => !p.air);
-    for (let i = 0, placed = 0; i < 400 && placed < MAX_PROPS; i++) {
+    const rdKey = `rd_${this.level.theme}`;
+    if (this.textures.exists(rdKey)) {
+      // 길가 장식 (덤불, 바위, 가시덩굴 등): 길 양쪽 가장자리를 따라 듬성듬성
+      const frames = this.textures.get(rdKey).getFrameNames();
+      for (const p of ground) {
+        for (let d = 20 + rnd() * 20, side = rnd() < 0.5 ? 1 : -1; d < p.total - 10; d += 38 + rnd() * 40, side = -side) {
+          const a0 = p.at(d), a1 = p.at(d + 2), nl = Math.hypot(a1.x - a0.x, a1.y - a0.y) || 1;
+          const off = 32 + rnd() * 6;
+          const v = { x: a0.x - ((a1.y - a0.y) / nl) * off * side, y: a0.y + ((a1.x - a0.x) / nl) * off * side };
+          if (v.x < 10 || v.x > GAME_W - 10 || v.y < 50 || v.y > GAME_H - 10) continue;
+          if (ground.some((q) => q.nearest(v, 8).dist < 27)) continue;
+          if (this.level.spots.some((s) => Math.hypot(s.x - v.x, s.y - v.y) < 46)) continue;
+          this.add.image(v.x, v.y, rdKey, frames[Math.floor(rnd() * frames.length)]).setOrigin(0.5, 0.8).setScale(0.55 + rnd() * 0.2).setDepth(v.y - 2).setFlipX(rnd() < 0.5);
+        }
+      }
+    }
+    for (let i = 0, placed = 0; !hasBg && i < 400 && placed < MAX_PROPS; i++) {
       const v = { x: 20 + rnd() * (GAME_W - 40), y: 60 + rnd() * (GAME_H - 80) };
       if (ground.some((p) => p.nearest(v, 8).dist < 55)) continue;
       if (this.level.spots.some((s) => Math.hypot(s.x - v.x, s.y - v.y) < 50)) continue;
@@ -462,7 +516,9 @@ export class GameScene extends Phaser.Scene implements World {
       // 벽 버튼: 열려 있는 스펠 바로 오른쪽, 영웅이 나오는 스테이지에서는 영웅 버튼 오른쪽
       wall: d(button(this, f.heroes ? 486 : 48 + 78 * ([f.fire, f.reinf].filter(Boolean).length), y, 66, 66,
         `${t('wall')} ${wallFor(this.level.id).cost}`, () => this.pickWall(), 0x8a6a3a, 12,
-        { icon: wallFor(this.level.id).tex, iconScale: 1.7, layout: 'top' })),
+        hasSkinTexture(wallFor(this.level.id).tex.replace('w_', 'wp_'))
+          ? { icon: wallFor(this.level.id).tex.replace('w_', 'wp_'), iconScale: 0.75, layout: 'top' }   // 벽 그림 (112px 를 0.5배로 그리므로 폭 약 42)
+          : { icon: wallFor(this.level.id).tex, iconScale: 1.7, layout: 'top' })),
     };
     soundButton(this, GAME_W - 200, 25, 52, 42).bg.setDepth(901);
     button(this, GAME_W - 256, 25, 52, 42, '', () => void this.askHome(), C.slate, 15, { icon: 'ic_home', iconScale: 0.8, ...small }).bg.setDepth(901);
