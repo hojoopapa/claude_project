@@ -91,5 +91,5 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 
 ## 2026-11-09 마법사·번개 타워, 벽 PNG, 자리 보정
 - t_mage / t_thunder 1~3레벨 PNG (scripts/cut-sheets2.py 로 시트에서 잘라 docs/art/source/cut, scripts/fit-sprites.py 로 맞춤). 시트가 겹쳐 있어 컷마다 영역·지울 부분을 직접 지정했다.
-- 벽 PNG: wp_wood/dirt/metal(+_v 세로). 벽돌벽 그림은 없어 흙벽을 회색으로 바꾼 임시 그림(wp_brick). 벽 버튼 아이콘과 타워 건설 메뉴 아이콘은 아직 도형.
+- 벽 PNG: wp_wood/dirt/metal(+_v 세로). 흙·벽돌은 세로용 짧은 컷을 따로 쓴다. 벽 버튼 아이콘과 타워 건설 메뉴 아이콘은 아직 도형.
 - 건설 자리: autospots.ts clearRoad() 가 자리 그림(66x45)이 길(폭 60)에 안 닿게 밀어낸다 (levels.ts make 에서 적용).

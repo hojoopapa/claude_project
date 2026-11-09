@@ -21,7 +21,7 @@ export const PNG_FRAMES = [
   'e_bat_1', 'e_bat_2',
   'soldier_1', 'soldier_2', 'soldier_3', 'soldier_reinf',   // soldier_reinf: 지원군(붉은색)
   'h_sorc_atk',
-  // 벽 그림 (가로 / 세로 '_v'). 벽돌벽 그림은 없어 흙벽을 회색으로 바꿔 임시로 쓴다 (scripts/fit-sprites.py)
+  // 벽 그림 (가로 / 세로 '_v'). (scripts/fit-sprites.py)
   ...['wood', 'dirt', 'brick', 'metal'].flatMap((k) => [`wp_${k}`, `wp_${k}_v`]),
 ] as const;
 
