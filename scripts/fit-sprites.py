@@ -24,7 +24,7 @@ FOOT = 0.90
 
 # 적: (원본 접두어, 결과 접두어, 걷기1 몸 높이(2배 해상도), 왼쪽을 보는지, 컷 이름들)
 ENEMIES = [
-    ('orc', 'e_orc', 70, True, ['walk1', 'walk2', 'atk1', 'atk2']),
+    ('orc', 'e_orc', 70, {'atk1'}, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('shaman', 'e_shaman', 64, True, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('wraith', 'e_wraith', 64, False, ['walk1', 'walk2', 'atk1', 'atk2']),
     ('golem', 'e_golem', 104, False, ['walk1', 'walk2', 'atk1', 'atk2']),
@@ -103,7 +103,7 @@ def pack(frames: dict, foot_frac: float | None = None, low_only: bool = False):
 
 def main():
     for src, dst, body_h, flip, cuts in ENEMIES:
-        ims = {c: load(f'{src}_{c}', flip) for c in cuts}
+        ims = {c: load(f'{src}_{c}', flip is True or (isinstance(flip, set) and c in flip)) for c in cuts}
         s = body_h / ims[cuts[0]].height
         pack({f'{dst}_{c}': resize(im, s) for c, im in ims.items()})
     for src, dst, target, side in TOWERS:
