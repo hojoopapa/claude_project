@@ -20,7 +20,9 @@ THEMES = ['meadow', 'desert', 'swamp', 'snow', 'volcano']
 GW, GH = 960, 540
 
 
-BG_SCALE = 0.18      # 원본 대비 크기. 나무 높이가 약 45px (병사 28px 보다 조금 큼)
+BG_SCALE = 0.10      # 원본 대비 크기 (나무 높이 약 27px, 병사와 비슷)
+KEEP = 0.22          # 화면에서 나무·바위 그림이 남는 면적 비율 (나머지는 흐린 땅 색)
+PASTEL = (0.45, 0.30)  # (회색 쪽으로 섞는 비율, 흰색 쪽으로 섞는 비율): 채도와 대비를 낮춘다
 
 
 def bg():
@@ -37,7 +39,7 @@ def bg():
         strip = im.crop((x0, 0, x0 + inner, 1330))                 # 아래쪽 구석 로고(y>1330) 제외
         cw, chh = round(inner * BG_SCALE), round(1330 * BG_SCALE)
         st = np.array(strip.resize((cw, chh), Image.LANCZOS)).astype(np.float32)
-        ph = 96                                                    # 조각 높이 (겹침 포함)
+        ph, f = 60, 8                                              # 조각 높이(겹침 포함), 겹침 폭
         wx = np.minimum(np.arange(cw) + 1, np.arange(cw)[::-1] + 1)
         wy = np.minimum(np.arange(ph) + 1, np.arange(ph)[::-1] + 1)
         win = np.minimum(np.minimum(wy[:, None], wx[None, :]), f).astype(np.float32) / f + 0.02
@@ -45,21 +47,31 @@ def bg():
             rnd = np.random.RandomState(1000 * (i + 1) + j)
             acc = np.zeros((GH + 3 * ph, GW + 3 * cw, 3), np.float32)
             wsum = np.zeros((GH + 3 * ph, GW + 3 * cw, 1), np.float32)
-            # 조각을 한 줄씩 놓되 가로 간격, 세로 위치, 좌우 뒤집기를 무작위로 해서 격자 무늬가 안 보이게 한다
             y = -rnd.randint(ph)
-            while y < GH:
+            while y < GH:                                           # 1) 무작위 조각을 겹쳐 붙인 자세한 배경
                 x = -rnd.randint(cw)
                 while x < GW:
-                    yy = rnd.randint(0, chh - ph)
-                    pt = st[yy:yy + ph]
+                    pt = st[rnd.randint(0, chh - ph):][:ph]
                     if rnd.rand() < 0.5:
                         pt = pt[:, ::-1]
-                    y0, x0_ = y + ph, x + cw                          # 버퍼 여백(ph, cw)만큼 밀어 음수 좌표를 피한다
+                    y0, x0_ = y + ph, x + cw
                     acc[y0:y0 + ph, x0_:x0_ + cw] += pt * win[..., None]
                     wsum[y0:y0 + ph, x0_:x0_ + cw] += win[..., None]
                     x += int(cw * rnd.uniform(0.84, 0.97))
                 y += int(ph * rnd.uniform(0.8, 0.95))
-            out = (acc / np.maximum(wsum, 1e-3))[ph:ph + GH, cw:cw + GW]
+            sharp = (acc / np.maximum(wsum, 1e-3))[ph:ph + GH, cw:cw + GW]
+            # 2) 흐리게 뭉갠 땅 색. 큰 얼룩 모양 마스크가 높은 곳에만 자세한 그림을 남긴다
+            # 나무 그늘 색이 섞여 어두워지지 않게, 1/4 크기에서 밝은 쪽(상위 75%) 값으로 땅 색을 구한 뒤 흐리게 키운다
+            small = sharp[::4, ::4]
+            ground = ndi.percentile_filter(small, 75, size=(9, 9, 1))
+            soft = ndi.gaussian_filter(np.repeat(np.repeat(ground, 4, 0), 4, 1)[:GH, :GW], sigma=(14, 14, 0))
+            noise = ndi.gaussian_filter(rnd.rand(GH, GW).astype(np.float32), sigma=38)
+            thr = np.quantile(noise, 1 - KEEP)
+            m = np.clip((noise - thr) / (noise.std() * 0.35) + 0.5, 0, 1)[..., None]
+            out = soft * (1 - m) + sharp * m
+            gray = out.mean(-1, keepdims=True)
+            out = out * (1 - PASTEL[0]) + gray * PASTEL[0]
+            out = out * (1 - PASTEL[1]) + 255 * PASTEL[1]
             Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(os.path.join(OUT, 'bg', f'bg_{th}_{j + 1}.jpg'), quality=85, optimize=True)
     print('bg', len(THEMES) * 4)
 

@@ -360,7 +360,6 @@ export class GameScene extends Phaser.Scene implements World {
     const rnd = mulberry32(this.level.id * 7919);
     if (hasBg) {
       this.add.image(0, 0, bgKey).setOrigin(0).setDepth(-11);
-      this.add.rectangle(0, 0, GAME_W, GAME_H, 0x0a1020, 0.12).setOrigin(0).setDepth(-10.5);   // 배경이 타워·길보다 튀지 않게 살짝 눌러 준다
     } else {
       g.fillStyle(th.ground).fillRect(0, 0, GAME_W, GAME_H);
       for (let i = 0; i < 22; i++) {

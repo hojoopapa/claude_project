@@ -95,3 +95,4 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 - 건설 자리: autospots.ts clearRoad() 가 자리 그림(66x45)이 길(폭 60)에 안 닿게 밀어낸다 (levels.ts make 에서 적용).
 - 배경/길 (scripts/slice-bg-road.py, 원본 시트 bg.png, road.png 는 용량 때문에 저장소에 없음): public/skins/bg/bg_<테마>_<1~4>.jpg (스테이지 (id-1)%4+1), road/road_<테마>.png (거울 이음 타일, GameScene.drawMap 이 캔버스 패턴으로 길 모양에 칠함), road/rd_<테마>.png/json (길가 장식 아틀라스). GameScene.preload 에서 스테이지별로 불러오고, 파일이 없으면 예전 도형 배경으로 돌아간다. 배경이 있으면 벡터 나무 소품은 그리지 않는다.
 - 배경 크기: 지역 띠를 18%(BG_SCALE)로 줄여 무작위 조각을 겹쳐 붙인다 (나무 높이 약 45px, 병사 28px 보다 조금 큼). 아이콘 시트 etc.png → public/skins/png/ic_*.png 18개 (트로피는 그림 없음, 도형 유지). scripts/cut-sheets2.py → fit-sprites.py.
+- 배경 재조정(2026-11-09): BG_SCALE 0.10 + 파스텔(PASTEL) + 흐린 땅 색 바탕에 나무·바위 그림은 KEEP(22%) 면적만 남김. 어두운 막(오버레이)은 제거. 값은 scripts/slice-bg-road.py 상단에서 바꾼다.
