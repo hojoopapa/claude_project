@@ -97,3 +97,4 @@ node scripts/balance-sim.cjs . 1,5,20 [0|1|2]   # 봇 시뮬레이션, 마지막
 - 배경 크기: 지역 띠를 18%(BG_SCALE)로 줄여 무작위 조각을 겹쳐 붙인다 (나무 높이 약 45px, 병사 28px 보다 조금 큼). 아이콘 시트 etc.png → public/skins/png/ic_*.png 18개 (트로피는 그림 없음, 도형 유지). scripts/cut-sheets2.py → fit-sprites.py.
 - 배경 재조정(2026-11-09): BG_SCALE 0.10 + 파스텔(PASTEL) + 흐린 땅 색 바탕에 나무·바위 그림은 KEEP(22%) 면적만 남김. 어두운 막(오버레이)은 제거. 값은 scripts/slice-bg-road.py 상단에서 바꾼다.
 - 스테이지 시작 시 적 이동 경로 안내: GameScene.showRoute() 가 노란 화살표 줄(5개)이 길을 따라 2번 지나감 (약올림 팝업이 있으면 닫힌 뒤).
+- 난이도 조정(2026-11-09): towers.ts TOWER_DMG_MUL (전 타워 0.9, 번개탑 0.75, 바라크 병사 공격력 포함), features.ts ENEMY_HP_BOOST 1.05 (적 체력, 난이도 배율에 곱함). 시뮬레이션은 하지 않았다.

@@ -70,4 +70,13 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   },
 };
 
+/**
+ * 난이도 조정 (2026-11-09): 모든 타워 공격력 -10%, 번개탑은 -25% (10%에 더하는 것이 아니라 합쳐서 25%).
+ * 바라크 병사의 공격력도 같이 줄어든다. 원래 값은 위 TOWERS 표에 그대로 두고, 불러올 때 한 번만 곱한다.
+ */
+export const TOWER_DMG_MUL: Record<TowerKind, number> = { archer: 0.9, mage: 0.9, cannon: 0.9, barracks: 0.9, frost: 0.9, thunder: 0.75 };
+for (const k of Object.keys(TOWERS) as TowerKind[]) {
+  for (const lv of TOWERS[k].levels) lv.dmg = Math.round(lv.dmg * TOWER_DMG_MUL[k] * 10) / 10;
+}
+
 export const SELL_RATIO = 0.6;

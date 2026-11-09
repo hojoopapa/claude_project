@@ -36,6 +36,9 @@ export function featuresFor(stage: number): Features {
 }
 
 /** 난이도: 0 쉬움, 1 보통(기준), 2 어려움 */
+/** 모든 적 체력에 곱하는 값 (2026-11-09 난이도 조정: +5%) */
+export const ENEMY_HP_BOOST = 1.05;
+
 export const DIFFICULTIES = [
   // 적 체력 배율. 벽 추가에 맞춰 쉬움을 +10%(0.75 → 0.825), 이어서 세 난이도 모두 +10%를 더 올렸다 (2026-11-05)
   { hp: 0.91, gold: 1.25, lives: 5 },

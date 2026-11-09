@@ -14,7 +14,7 @@ import { calcScore, fmt } from '../score';
 import { NameTakenError, cleanName, rankingEnabled, submitScore } from '../ranking';
 import { askUniqueName } from '../nameDialog';
 import { promptText } from '../domDialog';
-import { DIFFICULTIES, Features, featuresFor, NORMAL_SPEED_STAGES, SPEEDS, SpeedTier, TUTORIAL_STAGES } from '../data/features';
+import { DIFFICULTIES, ENEMY_HP_BOOST, Features, featuresFor, NORMAL_SPEED_STAGES, SPEEDS, SpeedTier, TUTORIAL_STAGES } from '../data/features';
 import { ads } from '../ads';
 import { shouldTaunt } from './TauntScene';
 import { Btn, button, confirmModal, soundButton, text, C, icon, panel, modal } from '../ui';
@@ -160,7 +160,7 @@ export class GameScene extends Phaser.Scene implements World {
     this.level = LEVELS[this.index];
     this.features = featuresFor(this.level.id);
     const diff = DIFFICULTIES[getDifficulty()];
-    this.hpMul = diff.hp;
+    this.hpMul = diff.hp * ENEMY_HP_BOOST;
     this.gold = Math.round(this.level.startGold * diff.gold);
     this.lives = this.maxLives = this.level.lives + diff.lives;
     this.paths = this.level.paths.map((p) => new PathData(p.pts, p.air));
