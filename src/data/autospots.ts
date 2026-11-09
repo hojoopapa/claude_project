@@ -44,3 +44,40 @@ export function autoSpots(groundPaths: Vec[][], count: number): Vec[] {
   }
   return picked;
 }
+
+/**
+ * 건설 자리 그림(66x45, 중심이 4px 아래)이 길(폭 60)에 닿지 않게 한다.
+ * 길 중심에서 필요한 거리 = 길 반폭 30 + 자리 그림이 길 쪽으로 뻗은 길이(옆으로 33, 위아래로 26).
+ * 모든 길(갈래 포함)에서 이 거리를 지키는 가장 가까운 위치를 원래 자리 주변 38px 안에서 찾고(화면 x 30~930, y 46~458, 다른 자리와 50px 이상),
+ * 없으면 길에서 가장 멀어지는 위치를 쓴다. 직접 찍은 자리와 자동 자리 모두 적용한다.
+ */
+export function clearRoad(spots: Vec[], groundPaths: Vec[][]): Vec[] {
+  const paths = groundPaths.map((p) => new PathData(p));
+  /** 모든 길에 대해 (실제 거리 - 필요한 거리) 중 가장 작은 값. 0 이상이면 길을 침범하지 않는다 */
+  const slack = (x: number, y: number) => {
+    let m = Infinity;
+    for (const p of paths) {
+      const n = p.nearest({ x, y });
+      const d = n.dist || 1;
+      m = Math.min(m, n.dist - (31 + Math.abs((x - n.pt.x) / d) * 33 + Math.abs((y - n.pt.y) / d) * 26));
+    }
+    return m;
+  };
+  const out: Vec[] = [];
+  for (const s of spots) {
+    const clash = (x: number, y: number) => out.some((o) => Math.hypot(o.x - x, o.y - y) < 50);
+    let best: Vec | null = slack(s.x, s.y) >= 0 ? { x: s.x, y: s.y } : null;
+    let far: { p: Vec; sl: number } = { p: { x: s.x, y: s.y }, sl: slack(s.x, s.y) };
+    for (let r = 2; !best && r <= 38; r += 2) {
+      for (let a = 0; a < 360; a += 10) {
+        const x = Math.round(s.x + r * Math.cos((a * Math.PI) / 180)), y = Math.round(s.y + r * Math.sin((a * Math.PI) / 180));
+        if (x < 30 || x > 930 || y < 46 || y > 458) continue;
+        const sl = slack(x, y);
+        if (sl > far.sl && !clash(x, y)) far = { p: { x, y }, sl };
+        if (sl >= 0 && !clash(x, y)) { best = { x, y }; break; }
+      }
+    }
+    out.push(best ?? far.p);
+  }
+  return out;
+}

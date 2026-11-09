@@ -21,6 +21,8 @@ export const PNG_FRAMES = [
   'e_bat_1', 'e_bat_2',
   'soldier_1', 'soldier_2', 'soldier_3', 'soldier_reinf',   // soldier_reinf: 지원군(붉은색)
   'h_sorc_atk',
+  // 벽 그림 (가로 / 세로 '_v'). 벽돌벽 그림은 없어 흙벽을 회색으로 바꿔 임시로 쓴다 (scripts/fit-sprites.py)
+  ...['wood', 'dirt', 'brick', 'metal'].flatMap((k) => [`wp_${k}`, `wp_${k}_v`]),
 ] as const;
 
 /**
@@ -28,7 +30,8 @@ export const PNG_FRAMES = [
  * 기사 영웅의 평소 그림(scripts/slice-dragon-knight.py). 같은 키의 SVG 는 불러오지 않는다 (BootScene).
  */
 export const PNG_REPLACE = ['t_archer_1', 't_archer_2', 't_archer_3', 'h_knight', 'spot',
-  't_barracks_1', 't_barracks_2', 't_barracks_3', 't_frost_1', 't_frost_2', 't_frost_3', 't_cannon_1', 't_cannon_2', 't_cannon_3',   // scripts/fit-sprites.py
+  't_barracks_1', 't_barracks_2', 't_barracks_3', 't_frost_1', 't_frost_2', 't_frost_3', 't_cannon_1', 't_cannon_2', 't_cannon_3',
+  't_mage_1', 't_mage_2', 't_mage_3', 't_thunder_1', 't_thunder_2', 't_thunder_3',   // scripts/fit-sprites.py
   'h_sorc',
 ] as const;   // spot = 건물 자리 (scripts/slice-spot.py)
 

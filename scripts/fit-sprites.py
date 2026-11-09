@@ -36,7 +36,12 @@ TOWERS = [
     ('barracks', 't_barracks', 200, 'w'),
     ('frost', 't_frost', 232, 'h'),
     ('cannon', 't_cannon', 224, 'h'),
+    ('mage', 't_mage', 240, 'h'),
+    ('thunder', 't_thunder', 232, 'h'),
 ]
+# 벽: (원본 컷, 결과 이름) 가로 폭은 가로로 놓을 때 112, 세로(_v) 80 (2배 해상도). 벽돌벽 그림은 없어서 흙벽을 회색 벽돌색으로 바꿔 쓴다
+WALLS = [('wall_wood', 'wp_wood'), ('wall_dirt', 'wp_dirt'), ('wall_metal', 'wp_metal')]
+WALL_W, WALL_V_W = 112, 80
 SOLDIER_LV1_H = 56      # 병사 1레벨 키 (화면 28px). 2, 3레벨은 같은 비율로 줄여 더 커 보인다
 SORC_H = 84            # 마법사 영웅 키 (화면 42px)
 
@@ -101,11 +106,29 @@ def pack(frames: dict, foot_frac: float | None = None, low_only: bool = False):
         print(f'{n}.png  {cw}x{ch}  (그림 {f.width}x{f.height})')
 
 
+def stone(im: Image.Image) -> Image.Image:
+    """흙벽 그림을 회색 돌벽 색으로 바꾼다 (벽돌벽 그림이 없을 때 임시)"""
+    a = np.array(im.convert('RGBA'))
+    hsv = np.array(Image.fromarray(a[..., :3]).convert('HSV')).astype(np.float32)
+    hsv[..., 0] = 150 * 255 / 360          # 청회색 쪽 색조
+    hsv[..., 1] *= 0.22
+    out = a.copy()
+    out[..., :3] = np.array(Image.fromarray(hsv.astype(np.uint8), 'HSV').convert('RGB'))
+    return Image.fromarray(out)
+
+
 def main():
     for src, dst, body_h, flip, cuts in ENEMIES:
         ims = {c: load(f'{src}_{c}', flip is True or (isinstance(flip, set) and c in flip)) for c in cuts}
         s = body_h / ims[cuts[0]].height
         pack({f'{dst}_{c}': resize(im, s) for c, im in ims.items()})
+    for src, dst in WALLS + [('wall_dirt', 'wp_brick')]:
+        im = load(src)
+        if dst == 'wp_brick':
+            im = stone(im)
+        for key, w in ((dst, WALL_W), (dst + '_v', WALL_V_W)):
+            im.resize((w, round(im.height * w / im.width)), Image.LANCZOS).save(os.path.join(OUT, key + '.png'), optimize=True)
+            print(key)
     for src, dst, target, side in TOWERS:
         ims = [load(f'{src}_lv{i}') for i in (1, 2, 3)]
         s = target / (ims[2].width if side == 'w' else ims[2].height)

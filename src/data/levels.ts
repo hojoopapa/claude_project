@@ -1,6 +1,6 @@
 import { curvePath, type Vec } from '../game/path.ts';
 import type { EnemyKind } from './enemies.ts';
-import { autoSpots } from './autospots.ts';
+import { autoSpots, clearRoad } from './autospots.ts';
 import { catchUpGold, genWaves, waveCount, type PoolEntry } from './wavegen.ts';
 
 export interface WaveGroup {
@@ -62,7 +62,7 @@ function make(sp: Spec): LevelDef {
   const ground = sp.id >= CURVY_FROM ? sp.ground.map((pts) => curvePath(pts, sp.id * 0.9)) : sp.ground;
   // 비행 유닛도 지상 유닛과 같은 길을 따라간다 (2026-11-06 결정). 스테이지 데이터의 air 직선 경로는 더 이상 쓰지 않는다
   const paths = ground.map((pts) => ({ pts }));
-  const spots = Array.isArray(sp.spots) ? sp.spots : autoSpots(ground, sp.spots ?? 14);
+  const spots = clearRoad(Array.isArray(sp.spots) ? sp.spots : autoSpots(ground, sp.spots ?? 14), ground);
   const waves = genWaves({
     seed: sp.id, stage: sp.id, pool: sp.pool, lanes: sp.ground.length,
     boss: sp.boss, power: sp.power, waves: waveCount(sp.id),
