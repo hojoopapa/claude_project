@@ -23,6 +23,10 @@ export class MenuScene extends Phaser.Scene {
     button(this, GAME_W / 2, 440, 260, 64, t('start'), () => this.scene.start('LevelSelect'), C.green, 26, { icon: 'ic_play', iconScale: 0.8, layout: 'left', radius: 20 });
     button(this, GAME_W / 2, 502, 200, 40, t('ranking'), () => this.scene.start('Ranking'), C.slate, 16, { icon: 'ic_trophy', iconScale: 0.65, radius: 20 });
 
+    // 왼쪽 위: HOREETEC 홈 (허브에 없는 언어 코드는 영어 홈으로)
+    const hubLang = LANGS[langIndex()].code;
+    button(this, 82, 32, 134, 42, '← HOREETEC', () => { window.location.href = 'https://horeetec.com/' + (hubLang === 'ko' ? '' : hubLang + '/'); }, C.slate, 14, { radius: 17 });
+
     // 오른쪽 위: 소리와 언어
     soundButton(this, GAME_W - 192, 32, 52, 42);
     button(this, GAME_W - 82, 32, 134, 42, `${LANGS[langIndex()].name}`, () => { nextLang(); this.scene.restart(); }, C.slate, 14, { radius: 17 });
